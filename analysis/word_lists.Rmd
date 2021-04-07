@@ -1,0 +1,81 @@
+---
+title: "word lists"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(tidyverse)
+library(readxl)
+library(ggthemes)
+library(ggpubr)
+```
+
+# Exploring word lists
+
+## Brysbaert & Biemiller 2017
+
+```{r}
+bb <-  read_xlsx("../data/word_lists/Brysbaert&Biemiller2017.xlsx")
+```
+
+> Brysbaert, M., & Biemiller, A. (2017). Test-based age-of-acquisition norms for 44 thousand English word meanings. Behavior research methods, 49(4), 1520-1523.
+
+Variables:
+
+ $ WORD        : from Dale and O’Rourke (1981)
+ $ MEANING     : from Dale and O’Rourke (1981)
+ $ AoAtestbased: updated test-based AoA measures from Dale and O’Rourke (1981) - values are in grades
+ $ AoArating   : from Kuperman et al. (2012) - values are in years
+ $ LWV         : original AoA measures from Dale and O’Rourke (1981) - values are in grades
+ $ CDI         : age at which word is learned (produced according to CDI) - values are in month
+ $ Morr        : age at which children could name pictures according to Morrison et al. (1997) - values are in month
+ $ Floc        :suggested grade to teach the word according to the Flocabulary website - values are in grades
+ 
+ ### Explore Morisson data
+ 
+```{r}
+mor <- bb %>%
+  filter(!is.na(Morr))%>%
+  filter(!duplicated(WORD))%>%
+  mutate(aoa = round(Morr/12,2))
+
+```
+
+```{r}
+mor %>%
+  group_by(aoa)%>%
+  summarise(n = n())%>%
+  ggplot(aes(x = aoa, y = n))+
+  geom_bar(stat = "identity", alpha = .5, col = "black", fill = "firebrick")+
+  theme_minimal()
+
+
+mor%>%
+  mutate(WORD = factor(WORD),
+         WORD = fct_reorder(WORD, -aoa))%>%
+  ggplot(aes(y = WORD, x = aoa, label = WORD))+
+  geom_text(alpha = .5, size = 2)+
+  facet_wrap(~aoa, scales = "free", nrow = 1)+
+  theme_few()+
+  theme(axis.text = element_blank(),
+        axis.ticks = element_blank())
+  
+```
+
+
+#### Realtion to CDI
+
+```{r}
+mor %>%
+  ggplot(aes(x = CDI, y = Morr))+
+  geom_abline(intercept = 0, slope = 1, lty = 2, col = "grey")+
+  geom_point(alpha = 0.2)+
+  theme_minimal()+
+  stat_cor(method = "pearson")+
+  xlim(0,90)+
+  ylim(0,90)
+```
+ 
+ 

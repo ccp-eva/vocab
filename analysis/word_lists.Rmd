@@ -8,6 +8,7 @@ knitr::opts_chunk$set(echo = TRUE)
 
 library(tidyverse)
 library(readxl)
+library(writexl)
 library(ggthemes)
 library(ggpubr)
 ```
@@ -39,43 +40,186 @@ Variables:
 mor <- bb %>%
   filter(!is.na(Morr))%>%
   filter(!duplicated(WORD))%>%
-  mutate(aoa = round(Morr/12,2))
+  mutate(aoa = round(Morr/12,2))%>%
+  rename(english = WORD, 
+         aoa_mor = aoa,
+         aoa_rating_english = AoArating)%>%
+  mutate_if(is.character, tolower)
 
 ```
 
 ```{r}
 mor %>%
-  group_by(aoa)%>%
+  group_by(aoa_mor)%>%
   summarise(n = n())%>%
-  ggplot(aes(x = aoa, y = n))+
+  ggplot(aes(x = aoa_mor, y = n))+
   geom_bar(stat = "identity", alpha = .5, col = "black", fill = "firebrick")+
   theme_minimal()
 
 
 mor%>%
-  mutate(WORD = factor(WORD),
-         WORD = fct_reorder(WORD, -aoa))%>%
-  ggplot(aes(y = WORD, x = aoa, label = WORD))+
+  mutate(english = factor(english),
+         english = fct_reorder(english, -aoa_mor))%>%
+  ggplot(aes(y = english, x = aoa_mor, label = english))+
   geom_text(alpha = .5, size = 2)+
-  facet_wrap(~aoa, scales = "free", nrow = 1)+
+  facet_wrap(~aoa_mor, scales = "free", nrow = 1)+
   theme_few()+
   theme(axis.text = element_blank(),
         axis.ticks = element_blank())
   
 ```
-
-
-#### Realtion to CDI
+#### Relation to AOA ratings
 
 ```{r}
 mor %>%
-  ggplot(aes(x = CDI, y = Morr))+
+  ggplot(aes(x = aoa_rating_english, y = aoa_mor))+
   geom_abline(intercept = 0, slope = 1, lty = 2, col = "grey")+
   geom_point(alpha = 0.2)+
   theme_minimal()+
   stat_cor(method = "pearson")+
-  xlim(0,90)+
-  ylim(0,90)
+  xlim(0,12)+
+  ylim(0,12)
+```
+## Schröder et al 2012
+ 
+ > Schröder, A., Gemballa, T., Ruppin, S., & Wartenburger, I. (2012). German norms for semantic typicality, age of acquisition, and concept familiarity. Behavior research methods, 44(2), 380-394.
+
+```{r}
+setal <-  read_xls("../data/word_lists/schroederEtAl2012.xls")%>%
+  mutate_if(is.character, tolower)%>%
+  rename(aoa_german_s_m = aoa_m,
+         aoa_german_s_sd = aoa_sd, 
+         sem_cat = `semantic category`)
+
+```
+Variables:  
+ 
+ $ german                  : word in German
+ $ english                 : British English translation
+ $ semantic category       : semantic category of word (e.g. animals, birds, fruits, etc)
+ $ exemplar_generation_n   : number of participants listing that item as exemplar for the semantic category it belongs to
+ $ exemplar_generation_prop: prop of participants listing that item as exemplar for the semantic category it belongs to
+ $ typicality_m            : mean for rating go of how typical is the item for the category (1-7 rating)
+ $ typicality_sd           : sd for rating go of how typical is the item for the category (1-7 rating)
+ $ aoa_german_s_m          : age of acquisition rating mean
+ $ aoa_german_s_sd         : age of acquisition rating sd
+ $ familiarity_m           : mean rating of degree to which they thought about or came in contact with a concept
+ $ familiarity_sd          : sd rating of degree to which they thought about or came in contact with a concept
+ $ word_freq               : normalized lemma frequency per million
+ $ word_freq_log           : normalized lemma frequency per million in log scale
+ $ word_length_phonemes    : number of phonemes
+ $ word_length_syllables   : number of syllables
+ 
+
+## Birchenough et al 2017
+
+>Birchenough, J. M., Davies, R., & Connelly, V. (2017). Rated age-of-acquisition norms for over 3,200 German words. Behavior research methods, 49(2), 484-501.
+
+```{r}
+betal <-  read_csv("../data/word_lists/BirchenoughEtAL2017.csv", locale = locale(encoding = 'latin1'))%>%
+  select(-Upper, AM_TWord)%>%
+  mutate_if(is.character, tolower)%>%
+  rename(german = Word, 
+         english = BE_TWord, 
+         aoa_german_b_m = AoAestimate,
+         aoa_german_b_sd = SD)%>%
+  select(german,english,RatperWord,aoa_german_b_m,aoa_german_b_sd)
+```
+ $ german         : word in German
+ $ english        : British English translation
+ $ RatperWord     : raters per word
+ $ aoa_german_b_m : age of acquisition rating mean
+ $ aoa_german_b_sd: age of acquisition rating sd
+
+## Łuniewska et al 2019
+
+> Łuniewska, M., Wodniecka, Z., Miller, C. A., Smolík, F., Butcher, M., Chondrogianni, V., ... & Haman, E. (2019). Age of acquisition of 299 words in seven languages: American English, Czech, Gaelic, Lebanese Arabic, Malay, Persian and Western Armenian. PloS one, 14(8), e0220611.
+
+Total of 32 languages in the dataset, including German. 
+
+```{r}
+letal <- read_xlsx("../data/word_lists/LuniewskaEtAl2019_aoa.xlsx")%>%
+  mutate_if(is.character, tolower)%>%
+  rename(aoa_german_l_m = German, 
+         english = word)%>%
+  select(english,aoa_german_l_m) 
+```
+
+## CLT dataset
+
+```{r}
+clt <-  read_delim("../data/word_lists/clt.csv", delim = ";")%>%
+  mutate_if(is.character, tolower)%>%
+  mutate(german = as.character(german))
+```
+
+
+## Merging Datasets
+ 
+```{r}
+md <- betal %>%
+  select(-RatperWord, -aoa_german_b_sd)%>%
+  full_join(setal%>%  select(german, english,word_freq,familiarity_m, aoa_german_s_m))%>%
+  left_join(mor%>%select(english, aoa_mor, aoa_rating_english))%>%
+  full_join(letal%>%left_join(clt))%>%
+  filter(!is.na(german))%>%
+  mutate(aoa_german_comb = ifelse(!is.na(aoa_german_b_m), aoa_german_b_m, 
+                           ifelse(!is.na(aoa_german_s_m), aoa_german_s_m, aoa_german_l_m)))%>%
+  select(german, word_freq, familiarity_m,aoa_german_b_m, aoa_german_s_m, aoa_german_l_m,aoa_german_comb,clt,english,aoa_mor,aoa_rating_english)%>%
+  arrange(aoa_german_comb)%>%
+  mutate(select = ifelse(clt == "yes", "x", ""), 
+         word_freq = as.numeric(word_freq))%>%
+  mutate_if(is.numeric, round, digits = 2)
+
+write_xlsx(md, path = "../data/word_list.xlsx")
+
+str(md)
+```
+
+
+
+### Relation between german AOA ratings
+
+```{r}
+md %>%
+  ggplot(aes(x = aoa_german_l_m, aoa_german_b_m))+
+  geom_abline(intercept = 0, slope = 1, lty = 2, col = "grey")+
+  geom_point(alpha = 0.2)+
+  theme_minimal()+
+  geom_smooth(method = "lm", col = "firebrick")+
+  stat_cor(method = "pearson")+
+  xlim(0,12)+
+  ylim(0,12)
 ```
  
+### Relation between german and english AOA ratings
+
+```{r}
+md %>%
+  select(german, aoa_german_b_m, aoa_german_s_m,aoa_german_l_m, aoa_mor)%>%
+  pivot_longer(names_to = "source_german", values_to = "aoa_rating_german", cols = c(aoa_german_b_m, aoa_german_s_m,aoa_german_l_m))%>%
+  ggplot(aes(x = aoa_rating_german, y = aoa_mor))+
+  geom_abline(intercept = 0, slope = 1, lty = 2, col = "grey")+
+  geom_point(alpha = 0.2)+
+  theme_few()+
+  facet_grid(~source_german)+
+  geom_smooth(method = "lm", col = "firebrick")+
+  stat_cor(inherit.aes = T, method = "pearson")+
+  xlim(0,12)+
+  ylim(0,12)
+```
+
+### Relation between german AOA rating and english test based AOA
+
+```{r}
+md %>%
+  ggplot(aes(x = aoa_rating_german, aoa_mor))+
+  geom_abline(intercept = 0, slope = 1, lty = 2, col = "grey")+
+  geom_point(alpha = 0.2)+
+  theme_minimal()+
+  geom_smooth(method = "lm", col = "firebrick")+
+  stat_cor(method = "pearson")+
+  xlim(0,12)+
+  ylim(0,12)
+```
  

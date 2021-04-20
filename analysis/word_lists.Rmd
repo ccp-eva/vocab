@@ -165,17 +165,36 @@ md <- betal %>%
   filter(!is.na(german))%>%
   mutate(aoa_german_comb = ifelse(!is.na(aoa_german_b_m), aoa_german_b_m, 
                            ifelse(!is.na(aoa_german_s_m), aoa_german_s_m, aoa_german_l_m)))%>%
-  select(german, word_freq, familiarity_m,aoa_german_b_m, aoa_german_s_m, aoa_german_l_m,aoa_german_comb,clt,english,aoa_mor,aoa_rating_english)%>%
+  select(german, word_freq,aoa_german_b_m, aoa_german_s_m, aoa_german_l_m,aoa_german_comb,clt,english,aoa_mor,aoa_rating_english)%>%
   arrange(aoa_german_comb)%>%
   mutate(select = ifelse(clt == "yes", "x", ""), 
          word_freq = as.numeric(word_freq))%>%
   mutate_if(is.numeric, round, digits = 2)
-
-write_xlsx(md, path = "../data/word_list.xlsx")
-
-str(md)
 ```
 
+### Distribution of words by age
+
+```{r}
+md%>%
+  ggplot(aes(x = aoa_german_comb))+
+  geom_histogram(alpha = .5, fill = "firebrick",col = "black", position = "stack", binwidth = 0.25)+
+  theme_minimal()+
+  xlim(0,16)+
+  scale_fill_viridis_d()
+```
+### Write Excel files for annotation
+
+```{r}
+md %>%
+  filter(aoa_german_comb < 10)%>%
+  mutate(group = as.numeric(factor(as.character(cut(row_number(), 10)))))%>%
+  group_by(group)%>%
+  group_walk(~write_xlsx(., paste0("../data/word_list_",.y$group,".xlsx")))
+  
+  
+
+write_xlsx(md, path = "../data/word_list.xlsx")
+```
 
 
 ### Relation between german AOA ratings

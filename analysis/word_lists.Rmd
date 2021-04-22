@@ -165,10 +165,11 @@ md <- betal %>%
   filter(!is.na(german))%>%
   mutate(aoa_german_comb = ifelse(!is.na(aoa_german_b_m), aoa_german_b_m, 
                            ifelse(!is.na(aoa_german_s_m), aoa_german_s_m, aoa_german_l_m)))%>%
-  select(german, word_freq,aoa_german_b_m, aoa_german_s_m, aoa_german_l_m,aoa_german_comb,clt,english,aoa_mor,aoa_rating_english)%>%
+  select(german, word_freq,aoa_german_comb,clt,english,aoa_mor)%>%
   arrange(aoa_german_comb)%>%
   mutate(select = ifelse(clt == "yes", "x", ""), 
          word_freq = as.numeric(word_freq))%>%
+  select(german, select, aoa_german_comb, word_freq, aoa_mor, clt, english)%>%
   mutate_if(is.numeric, round, digits = 2)
 ```
 

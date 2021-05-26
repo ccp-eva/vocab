@@ -242,4 +242,48 @@ md %>%
   xlim(0,12)+
   ylim(0,12)
 ```
+
+# Selected words from combined lists
+
+For selections criteria see: `../docs/conding.md`.
+
+```{r}
+file.list <- list.files(path = "../data/annotated_word_lists/", pattern='*.xlsx', full.names = T)
+
+ad <- lapply(file.list, read_xlsx)%>%bind_rows()%>%
+  arrange(aoa_german_comb)%>%
+  filter(select == "x")%>%
+  select(1:7)
+
+# add word type inforamtion
+
+wt <- read_xlsx("../data/annotated_word_lists/word_list_collection_all.xlsx", skip = 1)%>%
+  slice(-1)%>%
+  pivot_longer(names_to = "word_type", values_to = "word", cols = 1:30)%>%
+  mutate(word_type = gsub("\\..*","",word_type))%>%
+  filter(!is.na(word))%>%
+  mutate(word_type = recode(word_type, adj = "adjective", nouns = "noun", verbs = "verb"))%>%
+  rename(german = word)%>%
+  select(german, word_type)
+
+fw <- ad%>%left_join(wt)%>%
+  mutate(word_type = ifelse(german == "bürste", "noun", word_type),
+         word_type = ifelse(german == "magnetisch", "adjective", word_type),
+         word_type = ifelse(german == "gerechtigkeit", "noun", word_type))
+
+write_csv(fw, file = "../data/word_list.csv")
+  
+```
+## Distribution of selected words by age and word type
+
+```{r}
+fw%>%
+  ggplot(aes(x = aoa_german_comb, fill = word_type))+
+  geom_histogram(alpha = .5, col = "black", binwidth = 0.25, position = "identity")+
+  theme_minimal()+
+  xlim(1,11)+
+  facet_grid(~word_type)+
+  scale_fill_viridis_d()
+```
+
  

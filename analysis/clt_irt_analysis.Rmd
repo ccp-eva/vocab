@@ -638,16 +638,17 @@ names <- irt_dat%>%
   select(targetWord)%>%
   mutate(item = paste0("item",row_number()))
 
-format <- l.format%>%left_join(names)
+format <- l.format%>%left_join(names)%>%left_join(aoa)
 
 # plot chart
-ggplot(format, aes(Theta, P.1)) + 
+ggplot(format, aes(Theta, P.1, col = aoa_german_comb, group = item)) + 
   geom_line() + 
   #ggtitle('Probability Tracelines') + 
   xlab(expression(theta)) + 
   ylab(expression(P(theta))) + 
-  facet_wrap(~targetWord)+
+  #facet_wrap(~targetWord)+
   ylim(0,1)+
+  scale_color_viridis_c(name = "AoA") +
   #geom_hline(aes(yintercept = 0.5)) +
   theme_bw() + 
   theme(

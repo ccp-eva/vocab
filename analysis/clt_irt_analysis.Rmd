@@ -9,6 +9,7 @@ library(ggpubr)
 library(tidyboot)
 library(brms)
 library(readxl)
+library(ggthemes)
 
 ```
 
@@ -57,7 +58,7 @@ irt1 <- brm(
   family = brmsfamily("bernoulli", "logit"),
   correct ~ 1 + (1 | targetWord) + (1 | subjID),
   prior = prior_1pl,
-  control = list(adapt_delta = 0.9)
+  control = list(adapt_delta = 0.9),
   cores = 6,
   chains = 6,
   iter = 6000
@@ -580,27 +581,32 @@ firt_dat <- irt_dat%>%
   select(-subjID)
 
 
-firt_1F <- mirt(firt_dat, 1, itemtype = "3PL")
-firt_2F <- mirt(firt_dat, 2, itemtype = "3PL")
+firt_1F <- mirt(firt_dat, 1, itemtype = "2PL",  guess = .25,technical = list(NCYCLES = 1000))
+firt_2F <- mirt(firt_dat, 2, itemtype = "2PL",technical = list(NCYCLES = 1000))
 
 anova(firt_1F, firt_2F)
 
 firt1 <- mirt(firt_dat, 1, itemtype = "Rasch",  guess = .25)
-firt2 <- mirt(firt_dat, 1, itemtype = "2PL",  guess = .25)
+firt2 <- mirt(firt_dat, 1, itemtype = "2PL",  guess = .25,technical = list(NCYCLES = 1000), SE = T)
 firt3 <- mirt(firt_dat, 1, itemtype = "3PL",  guess = .25)
 
-anova(firt3,firt2)
+anova(firt1,firt2)
 
 summary(firt_2F)
 ```
+
 ```{r}
 coefs2PL <- coef(firt2,
-     simplify = T,
-     IRTpars = T)$items%>%
-  as_tibble(rownames = "item")
+     as.data.frame = TRUE,
+     IRTpars = T)%>%
+  as_tibble(rownames = "x")%>%
+  separate(x, into = c("item", "nlpar"), sep = "\\.", remove = T)%>%
+  mutate(nlpar = recode(nlpar,
+                       b = "Easiness",
+                       a = "Discrimination"
+                      ))%>%
+  filter(nlpar != "g", nlpar != "u", item != "GroupPars")
 ```
-
-
 
 ```{r}
 traceline <- NULL
@@ -656,26 +662,51 @@ ggplot(format, aes(Theta, P.1, col = aoa_german_comb, group = item)) +
         axis.text.y=element_text(colour="black"),
         legend.title=element_blank())
 ```
-```{r}
-plot(firt2, type='trace', which.item = c(1:43), facet_items=T, 
-     as.table = TRUE, auto.key=list(points=F, lines=T, columns=4, space = 'top', cex = .8), 
-              theta_lim = c(-6, 6), 
-     main = "")
-```
 
+# Compare Bayesian and Frequentist models
 
 ```{r}
-for(i in 1:length(firt_dat)){
-  ItemPlot <- itemfit(firt2, 
-                      group.bins=15,
-                      empirical.plot = i,
-                      empirical.CI = .95,
-                      method = 'ML') 
-  print(ItemPlot)
-}
+pc <- bind_rows(
+format%>%
+  select(-item, -P.0)%>%
+  rename(item = targetWord,
+         p = P.1,
+         theta = Theta)%>%
+  mutate(source = "frequentist"),
+icc3%>%
+  mutate(source = "bayesian")
+)
+
+pc %>% 
+  ggplot(aes(x = theta, y = p, group = source, col = source)) +
+  geom_line() +
+  geom_hline(yintercept = 0.25, lty = 3, alpha = .75)+
+  facet_wrap(~item)+
+  #guides(col = F)+
+  scale_color_colorblind() +
+  labs(x = expression(theta~('ability on the logit scale')),
+       y = expression(italic(p)(y==1))) +
+  ylim(0,1)+
+  theme_minimal()
+
 ```
-
-
+```{r}
+params%>%left_join(coefs2PL)%>%
+  mutate(slope = ifelse(nlpar == "Easiness", -1,1))%>%
+  ggplot(aes(x = Estimate, y = par))+
+  geom_abline(aes(slope = slope, intercept = 0), lty = 3, alpha = .5)+
+  geom_errorbar(aes(ymin = CI_2.5, ymax = CI_97.5), alpha = .25, col = "dodgerblue")+
+  geom_errorbarh(aes(xmin = Q2.5, xmax = Q97.5), alpha = .25, col = "dodgerblue")+
+  geom_point(pch = 1, alpha = .75)+
+  facet_grid(~nlpar)+
+  labs(x = "Bayesian estimate", y = "Frequentist estimate")+
+  stat_cor()+
+  #ylim(-10,10)+
+  #xlim(-10,10)+
+  #coord_fixed(ratio = 1)+
+  scale_color_viridis_c()+
+  theme_bw()
+```
 
 
 # Sources

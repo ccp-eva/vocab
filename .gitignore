@@ -7,9 +7,12 @@
 # Put your project-specific ignores here:
 
 
+*.webm
 
-
-
+data/clt_raw_data/
+data/clt_raw_data_zas/
+data/clt_reminder.xlsx
+data/clt_pilot_data/
 
 # DO NOT CHANGE THE CONTENT THAT FOLLOWS HERE ...
 #   EXCEPT IF YOU PLAN TO UPDATE THE TEMPLATE

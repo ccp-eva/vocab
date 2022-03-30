@@ -194,7 +194,7 @@ md %>%
   
   
 
-write_xlsx(md, path = "../data/word_list.xlsx")
+#write_xlsx(md, path = "../data/word_list.xlsx")
 ```
 
 
@@ -271,7 +271,13 @@ fw <- ad%>%left_join(wt)%>%
          word_type = ifelse(german == "magnetisch", "adjective", word_type),
          word_type = ifelse(german == "gerechtigkeit", "noun", word_type))
 
-write_csv(fw, file = "../data/word_list.csv")
+
+## add words from clt round 2 selection
+
+fl <- fw%>%
+  bind_rows(read_xlsx("../data/annotated_word_lists/clt_new_words_round2.xlsx")%>%mutate(word_type = "noun")%>%filter(select == "x"))
+
+#write_csv(fl, file = "../data/word_list.csv")
   
 ```
 ## Distribution of selected words by age and word type
@@ -286,4 +292,57 @@ fw%>%
   scale_fill_viridis_d()
 ```
 
- 
+# CLT comprehension items
+
+## Generate list to be selected from
+
+```{r}
+sclt <- read_csv(file = "../data/word_list.csv")%>%
+  left_join(setal%>%select(german, sem_cat, familiarity_m, typicality_m, -sem_cat))%>%
+  select(-select, -aoa_mor, -english, -clt)%>%
+  filter(word_type == "noun",
+         aoa_german_comb > 5.94)%>%
+  mutate(select = NA,
+         sem_dom = NA)%>%
+  select(-word_type)
+  
+
+#write_xlsx(sclt, path = "../data/clt_new_words.xlsx")
+```
+
+## Generate List for second round of selection
+
+```{r}
+# words selected for CLT from previously selected words
+clt_sel1 <- read_xlsx("../data/annotated_word_lists/clt_new_words.xlsx")
+
+# full list for questionnaire
+
+file.list <- list.files(path = "../data/annotated_word_lists/", pattern='*.xlsx', full.names = T)
+
+qd <- lapply(file.list, read_xlsx)%>%bind_rows()%>%
+  arrange(aoa_german_comb)%>%
+  select(1:9, -aoa_mor, - familiarity_m, -typicality_m)%>%
+  left_join(setal%>%select(german, familiarity_m, typicality_m, -sem_cat))%>%
+  filter(aoa_german_comb > 5.94)%>%
+  select(-select, - clt)%>%
+  mutate(familiarity_m = round(familiarity_m, 2), 
+         typicality_m = round(typicality_m, 2))
+
+sclt2 <- qd %>% left_join(clt_sel1)
+
+#write_xlsx(sclt2, path = "../data/clt_new_words_round2.xlsx")
+
+```
+
+## selected words round 2
+
+```{r}
+# words selected for CLT from previously selected words
+clt_sel <- read_xlsx("../data/annotated_word_lists/clt_new_words_round2.xlsx")%>%
+  filter(select == "x")%>%
+  group_by(sem_dom)
+
+#write_xlsx(clt_sel, path = "../data/clt_new_words.xlsx")
+```
+

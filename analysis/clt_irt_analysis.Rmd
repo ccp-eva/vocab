@@ -1,0 +1,547 @@
+---
+title: "CLT Results"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+library(tidyverse)
+library(ggpubr)
+library(tidyboot)
+library(brms)
+
+```
+
+```{r}
+data <- read_csv("../data/clt_clean_data")
+```
+
+# IRT models
+
+```{r}
+irt_dat <- data%>%
+  select(subjID, targetWord, correct)
+```
+
+## 1PL model
+
+### Model
+
+```{r}
+irt1 <- brm(
+  data = irt_dat,
+  family = brmsfamily("bernoulli", "logit"),
+  correct ~ 1 + (1 | targetWord) + (1 | subjID),
+  prior = c(prior(normal(0, 1.5), class = Intercept),
+            prior(student_t(10, 0, 1), class = sd)),
+  cores = 4,
+  chains = 4,
+  iter = 8000
+)
+```
+### Model checks
+
+```{r}
+summary(irt1)
+
+plot(irt1)
+
+pp_check(irt1)
+```
+
+### ICC
+
+```{r}
+icc1 <- posterior_samples(irt1)%>% 
+  select(b_Intercept, starts_with("r_targetWord"))%>%
+  mutate(iter = 1:n()) %>% 
+  pivot_longer(starts_with("r_targetWord"), names_to = "item", values_to = "xi") %>%
+  mutate(item = str_extract(string = item, pattern = "(?<=\\[).*(?=,Intercept\\])"))%>%
+  expand(nesting(iter, b_Intercept, item, xi),
+         theta = seq(from = -6, to = 6, length.out = 100)) %>% 
+  mutate(p = inv_logit_scaled(b_Intercept + xi + theta)) %>% 
+  group_by(theta, item) %>% 
+  summarise(p = mean(p))%>%
+  left_join(aoa%>%rename(item = targetWord))
+```
+
+```{r}
+icc1 %>% 
+  ggplot(aes(x = theta, y = p,group = item, col = aoa_german_comb)) +
+  geom_line() +
+  #facet_wrap(~group)+
+  #guides(col = F)+
+  scale_color_viridis_c(name = "AoA") +
+  labs(title = "ICCs for the 1PL",
+       x = expression(theta~('ability on the logit scale')),
+       y = expression(italic(p)(y==1))) +
+  theme_minimal()
+```
+
+### IIC
+
+```{r}
+iic1 <- posterior_samples(irt1)%>% 
+  select(b_Intercept, starts_with("r_targetWord"))%>%
+  mutate(iter = 1:n()) %>% 
+  pivot_longer(starts_with("r_targetWord"), names_to = "item", values_to = "xi") %>%
+  mutate(item = str_extract(string = item, pattern = "(?<=\\[).*(?=,Intercept\\])"))%>%
+  expand(nesting(iter, b_Intercept, item, xi),
+         theta = seq(from = -6, to = 6, length.out = 100)) %>% 
+  mutate(p = inv_logit_scaled(b_Intercept + xi + theta)) %>% 
+  group_by(theta, item) %>% 
+  summarise(p = mean(p))%>%
+  left_join(aoa%>%rename(item = targetWord))%>%
+  mutate(i = p * (1 - p)) %>% 
+  group_by(theta, item) %>% 
+  summarise(i = median(i))%>%
+  left_join(aoa%>%rename(item = targetWord))
+  
+```
+
+```{r}
+iic1%>%
+  ggplot(aes(x = theta, y = i,group = item, col = aoa_german_comb)) +
+  geom_line() +
+  scale_color_viridis_c(name = "AoA") +
+  labs(title = "IICs for the 1PL",
+       x = expression(theta~('ability on the logit scale')),
+       y = "Information") +
+  theme_minimal()
+```
+
+### TIC
+```{r}
+tic1 <- posterior_samples(irt1)%>% 
+  select(b_Intercept, starts_with("r_targetWord"))%>%
+  mutate(iter = 1:n()) %>% 
+  pivot_longer(starts_with("r_targetWord"), names_to = "item", values_to = "xi") %>%
+  mutate(item = str_extract(string = item, pattern = "(?<=\\[).*(?=,Intercept\\])"))%>%
+  expand(nesting(iter, b_Intercept, item, xi),
+         theta = seq(from = -6, to = 6, length.out = 100)) %>% 
+  mutate(p = inv_logit_scaled(b_Intercept + xi + theta)) %>% 
+  mutate(i = p * (1 - p)) %>% 
+  group_by(theta, iter) %>% 
+  summarise(sum_i = sum(i)) %>% 
+  group_by(theta) %>% 
+  summarise(i = median(sum_i))
+```
+```{r}
+tic1%>%
+  ggplot(aes(x = theta, y = i)) +
+  geom_line() +
+  labs(title = "TIC for the 1PL",
+       x = expression(theta~('ability on the logit scale')),
+       y = "Information") +
+  theme_minimal()
+```
+
+### Differential Item Functioning
+
+```{r}
+irt_dif_dat <- data%>%
+  filter(!is.na(sex))%>%
+  select(subjID,sex, targetWord, correct)
+
+
+irt1_f <- brm(
+  data = irt_dif_dat%>%filter(sex == "w"),
+  family = brmsfamily("bernoulli", "logit"),
+  correct ~ 1 + (1 | targetWord) + (1 | subjID),
+  prior = c(prior(normal(0, 1.5), class = Intercept),
+            prior(student_t(10, 0, 1), class = sd)),
+  cores = 4,
+  chains = 4,
+  iter = 8000
+)
+
+irt1_m <- brm(
+  data = irt_dif_dat%>%filter(sex == "m"),
+  family = brmsfamily("bernoulli", "logit"),
+  correct ~ 1 + (1 | targetWord) + (1 | subjID),
+  prior = c(prior(normal(0, 1.5), class = Intercept),
+            prior(student_t(10, 0, 1), class = sd)),
+  cores = 4,
+  chains = 4,
+  iter = 8000
+)
+
+```
+
+```{r}
+icc1_dif <- bind_rows(
+  posterior_samples(irt1_m)%>%mutate(group = "m"),
+  posterior_samples(irt1_f)%>%mutate(group = "f")
+)%>%
+  select(b_Intercept,group, starts_with("r_targetWord"))%>%
+  group_by(group)%>%
+  mutate(iter = 1:n()) %>% 
+  ungroup()%>%
+  pivot_longer(starts_with("r_targetWord"), names_to = "item", values_to = "xi") %>%
+  mutate(item = str_extract(string = item, pattern = "(?<=\\[).*(?=,Intercept\\])"))%>%
+  expand(nesting(iter,group, b_Intercept, item, xi),
+         theta = seq(from = -6, to = 6, length.out = 100)) %>% 
+  mutate(p = inv_logit_scaled(b_Intercept + xi + theta)) %>% 
+  group_by(theta, group,item) %>% 
+  summarise(p = mean(p))
+```
+
+```{r}
+icc1_dif %>% 
+  ggplot(aes(x = theta, y = p,group = group, col = group)) +
+  geom_line(alpha = .75) +
+  facet_wrap(~item)+
+  #guides(col = F)+
+  scale_color_viridis_d(name = "AoA") +
+  labs(title = "Group Split by sex - 1PL",
+       x = expression(theta~('ability on the logit scale')),
+       y = expression(italic(p)(y==1))) +
+  theme_minimal()
+```
+
+## 2PL model
+
+### Model
+
+```{r}
+irt2 <- brm(
+  data = irt_dat,
+  family = brmsfamily("bernoulli", "logit"),
+  bf(
+    correct ~ exp(logalpha) * eta,
+    eta ~ 1 + (1 |i| targetWord) + (1 | subjID),
+    logalpha ~ 1 + (1 |i| targetWord),
+    nl = TRUE
+  ),
+  prior = c(prior(normal(0, 1.5), class = b, nlpar = eta),
+            prior(normal(0, 1), class = b, nlpar = logalpha),
+            prior(student_t(10, 0, 1), class = sd, nlpar = eta),
+            prior(student_t(10, 0, 1), class = sd, nlpar = logalpha),
+            prior(lkj(2), class = cor)),
+  cores = 4,
+  chains = 4,
+  iter = 8000
+)
+```
+
+### Model checks
+
+```{r}
+summary(irt2)
+
+plot(irt2)
+
+pp_check(irt2)
+```
+
+### Easiness and discrimination
+
+```{r}
+coef_irt2 <- coef(irt2)
+
+eta <- coef_irt2$targetWord[, , "eta_Intercept"] %>%
+	as_tibble(rownames = "item")
+
+alpha <- coef_irt2$targetWord[, , "logalpha_Intercept"] %>%
+	exp() %>%
+	as_tibble(rownames = "item")
+
+params <- bind_rows(eta, alpha, .id = "nlpar") %>%
+	select(-Est.Error) %>%
+	mutate(nlpar = factor(nlpar, labels = c("Easiness", "Discrimination")))%>%
+  left_join(aoa%>%rename(item = targetWord))
+
+ggplot(params,aes(reorder(item, -aoa_german_comb), Estimate, ymin = Q2.5, ymax = Q97.5)) +
+	facet_wrap("nlpar", scales = "free_x") +
+	geom_pointrange() +
+	coord_flip() +
+	labs(x = "Item")+
+  theme_calc()
+```
+
+
+### ICC
+
+```{r}
+icc2 <- posterior_samples(irt2)%>% 
+  select(b_eta_Intercept, b_logalpha_Intercept, starts_with("r_targetWord"))%>%
+  mutate(iter = 1:n()) %>% 
+  pivot_longer(starts_with("r_targetWord")) %>%
+  mutate(item      = str_extract(name, pattern = "(?<=\\[).*(?=,Intercept\\])"),
+         parameter = ifelse(str_detect(name, "eta"), "xi", "logalpha"))%>%
+  select(-name) %>% 
+  pivot_wider(names_from = parameter, values_from = value)%>% 
+  expand(nesting(iter, b_eta_Intercept, b_logalpha_Intercept, item, xi, logalpha),
+         theta = seq(from = -6, to = 6, length.out = 100)) %>% 
+  # note the difference in the equation
+  mutate(p = inv_logit_scaled(exp(b_logalpha_Intercept + logalpha) * (b_eta_Intercept + theta + xi))) %>% 
+  group_by(theta, item) %>% 
+  summarise(p = mean(p))%>%
+  left_join(aoa%>%rename(item = targetWord))
+
+```
+
+```{r}
+icc2 %>% 
+  ggplot(aes(x = theta, y = p,group = item, col = aoa_german_comb)) +
+  geom_line() +
+  #facet_wrap(~group)+
+  #guides(col = F)+
+  scale_color_viridis_c(name = "AoA") +
+  labs(title = "ICCs for the 2PL",
+       x = expression(theta~('ability on the logit scale')),
+       y = expression(italic(p)(y==1))) +
+  theme_minimal()
+```
+
+### IIC 
+
+```{r}
+iic2 <- posterior_samples(irt2)%>% 
+  select(b_eta_Intercept, b_logalpha_Intercept, starts_with("r_targetWord"))%>%
+  mutate(iter = 1:n()) %>% 
+  pivot_longer(starts_with("r_targetWord")) %>%
+  mutate(item      = str_extract(name, pattern = "(?<=\\[).*(?=,Intercept\\])"),
+         parameter = ifelse(str_detect(name, "eta"), "xi", "logalpha"))%>%
+  select(-name) %>% 
+  pivot_wider(names_from = parameter, values_from = value)%>% 
+  expand(nesting(iter, b_eta_Intercept, b_logalpha_Intercept, item, xi, logalpha),
+         theta = seq(from = -6, to = 6, length.out = 100)) %>% 
+  # note the difference in the equation
+  mutate(p = inv_logit_scaled(exp(b_logalpha_Intercept + logalpha) * (b_eta_Intercept + theta + xi)))%>%
+  mutate(i = p * (1 - p)) %>% 
+  group_by(theta, item) %>% 
+  summarise(i = median(i))%>%
+  left_join(aoa%>%rename(item = targetWord))
+```
+
+```{r}
+iic2%>%
+  ggplot(aes(x = theta, y = i,group = item, col = aoa_german_comb)) +
+  geom_line() +
+  scale_color_viridis_c(name = "AoA") +
+  labs(title = "IICs for the 2PL",
+       x = expression(theta~('ability on the logit scale')),
+       y = "information") +
+  theme_minimal()
+```
+
+### TIC
+```{r}
+tic2 <- posterior_samples(irt2)%>% 
+  select(b_eta_Intercept, b_logalpha_Intercept, starts_with("r_targetWord"))%>%
+  mutate(iter = 1:n()) %>% 
+  pivot_longer(starts_with("r_targetWord")) %>%
+  mutate(item      = str_extract(name, pattern = "(?<=\\[).*(?=,Intercept\\])"),
+         parameter = ifelse(str_detect(name, "eta"), "xi", "logalpha"))%>%
+  select(-name) %>% 
+  pivot_wider(names_from = parameter, values_from = value)%>% 
+  expand(nesting(iter, b_eta_Intercept, b_logalpha_Intercept, item, xi, logalpha),
+         theta = seq(from = -6, to = 6, length.out = 100)) %>% 
+  # note the difference in the equation
+  mutate(p = inv_logit_scaled(exp(b_logalpha_Intercept + logalpha) * (b_eta_Intercept + theta + xi)))%>%
+  mutate(i = p * (1 - p)) %>% 
+  group_by(theta, iter) %>% 
+  summarise(sum_i = sum(i)) %>% 
+  group_by(theta) %>% 
+  summarise(i = median(sum_i))
+```
+
+```{r}
+tic2%>%
+  ggplot(aes(x = theta, y = i)) +
+  geom_line() +
+  labs(title = "TIC for the 2PL",
+       x = expression(theta~('ability on the logit scale')),
+       y = "Information") +
+  theme_minimal()
+```
+
+## 3PL model
+
+### Model
+
+```{r}
+irt3 <- brm(
+  data = irt_dat,
+  family = brmsfamily("bernoulli", "identity"),
+  bf(
+    correct ~ 0.25 + 0.75 * inv_logit(exp(logalpha) * eta),
+    eta ~ 1 + (1 |i| targetWord) + (1 | subjID),
+    logalpha ~ 1 + (1 |i| targetWord),
+    nl = TRUE
+  ),
+  prior = c(prior(normal(0, 1.5), class = b, nlpar = eta),
+            prior(normal(0, 1), class = b, nlpar = logalpha),
+            prior(student_t(10, 0, 1), class = sd, nlpar = eta),
+            prior(student_t(10, 0, 1), class = sd, nlpar = logalpha),
+            prior(lkj(2), class = cor)),
+  cores = 4,
+  chains = 4,
+  iter = 8000
+)
+
+```
+
+### Model checks
+
+```{r}
+summary(irt3)
+
+plot(irt3)
+
+pp_check(irt3)
+```
+
+### ICC
+
+```{r}
+icc3 <- posterior_samples(irt3)%>% 
+  select(b_eta_Intercept, b_logalpha_Intercept, starts_with("r_targetWord"))%>%
+  mutate(iter = 1:n()) %>% 
+  pivot_longer(starts_with("r_targetWord")) %>%
+  mutate(item      = str_extract(name, pattern = "(?<=\\[).*(?=,Intercept\\])"),
+         parameter = ifelse(str_detect(name, "eta"), "xi", "logalpha"))%>%
+  select(-name) %>% 
+  pivot_wider(names_from = parameter, values_from = value)%>% 
+  expand(nesting(iter, b_eta_Intercept, b_logalpha_Intercept, item, xi, logalpha),
+         theta = seq(from = -6, to = 6, length.out = 100)) %>% 
+  # note the difference in the equation
+  mutate(p = 0.25 + 0.75*inv_logit_scaled(exp(b_logalpha_Intercept + logalpha) * (b_eta_Intercept + theta + xi))) %>% 
+  group_by(theta, item) %>% 
+  summarise(p = mean(p))%>%
+  left_join(aoa%>%rename(item = targetWord))
+
+```
+
+```{r}
+icc3 %>% 
+  ggplot(aes(x = theta, y = p,group = item, col = aoa_german_comb)) +
+  geom_line() +
+  geom_hline(yintercept = 0.25, lty = 3, alpha = .75)+
+  #facet_wrap(~group)+
+  #guides(col = F)+
+  scale_color_viridis_c(name = "AoA") +
+  labs(title = "ICCs for the 3PL",
+       x = expression(theta~('ability on the logit scale')),
+       y = expression(italic(p)(y==1))) +
+  ylim(0,1)+
+  theme_minimal()
+```
+
+```{r}
+iic3 <- posterior_samples(irt3)%>% 
+  select(b_eta_Intercept, b_logalpha_Intercept, starts_with("r_targetWord"))%>%
+  mutate(iter = 1:n()) %>% 
+  pivot_longer(starts_with("r_targetWord")) %>%
+  mutate(item      = str_extract(name, pattern = "(?<=\\[).*(?=,Intercept\\])"),
+         parameter = ifelse(str_detect(name, "eta"), "xi", "logalpha"))%>%
+  select(-name) %>% 
+  pivot_wider(names_from = parameter, values_from = value)%>% 
+  expand(nesting(iter, b_eta_Intercept, b_logalpha_Intercept, item, xi, logalpha),
+         theta = seq(from = -6, to = 6, length.out = 100)) %>% 
+  # note the difference in the equation
+  mutate(p = 0.25+0.75*(inv_logit_scaled(exp(b_logalpha_Intercept + logalpha) * (b_eta_Intercept + theta + xi))))%>%
+  mutate(i = p * (1 - p)) %>% 
+  group_by(theta, item) %>% 
+  summarise(i = median(i))%>%
+  left_join(aoa%>%rename(item = targetWord))
+```
+
+```{r}
+iic3%>%
+  ggplot(aes(x = theta, y = i,group = item, col = aoa_german_comb)) +
+  geom_line() +
+  scale_color_viridis_c(name = "AoA") +
+  labs(title = "IICs for the 3PL",
+       x = expression(theta~('ability on the logit scale')),
+       y = "information") +
+  theme_minimal()
+```
+
+## Model comparison
+
+```{r}
+irt1 <- add_criterion(irt1, "loo") 
+irt2 <- add_criterion(irt2, "loo") 
+irt3 <- add_criterion(irt3, "loo") 
+
+loo_compare(irt1, irt2, irt3)%>%as_tibble(rownames = "model")
+```
+
+# Frequentist IRT
+
+```{r}
+library(mirt)
+
+remove <- c("eye", "star", "telephone", "strawberry", "plane" ,"snake" ,"fish" ,"giraffe", "bicycle", "belt", "mushroom", "zebra" ,"kangaroo")
+
+firt_dat <- irt_dat%>%
+  filter(!targetWord %in% remove)%>%
+  group_by(subjID)%>%
+  distinct(targetWord, .keep_all = T)%>%
+  pivot_wider(names_from = targetWord, values_from = correct)%>%
+  ungroup()%>%
+  select(-subjID)
+
+
+firt_1F <- mirt(firt_dat, 1, itemtype = "3PL")
+firt_2F <- mirt(firt_dat, 2, itemtype = "3PL")
+
+anova(firt_1F, firt_2F)
+
+firt1 <- mirt(firt_dat, 1, itemtype = "Rasch")
+firt2 <- mirt(firt_dat, 1, itemtype = "2PL")
+firt3 <- mirt(firt_dat, 1, itemtype = "3PL")
+
+
+
+coef(firt1,
+     simplify = T,
+     IRTpars = T)
+
+anova(firt1, firt3)
+
+summary(firt_2F)
+  
+
+as_tibble(x$rotF, rownames = "targetWord")%>%
+  left_join(aoa)%>%
+  ggplot(aes(x = F1, y=F2, col = aoa_german_comb))+
+  theme_minimal()+
+  geom_point()
+
+coef(firt_2F)
+
+str(x)
+```
+
+
+
+```{r}
+for(i in 1:length(firt_dat)){
+  ItemPlot <- itemfit(firt3, 
+                      group.bins=15,
+                      empirical.plot = i,
+                      empirical.CI = .95,
+                      method = 'ML') 
+  print(ItemPlot)
+}
+```
+
+
+
+
+# Sources
+
+For models
+
+@article{burkner2019bayesian,
+  title={Bayesian item response modeling in R with brms and Stan},
+  author={B{\"u}rkner, Paul-Christian},
+  journal={arXiv preprint arXiv:1905.09501},
+  year={2019}
+}
+
+For sample size:
+
+Morizot, J., Ainsworth, A. T., & Reise, S. P. (2007). Toward modern psychometrics: Application of item response theory models in personality research. In R. W. Robins, R. C. Fraley, & R. F. Krueger (Eds.), Handbook of Research Methods in Personality Psychology (pp. 407-423). New York: Guilford.

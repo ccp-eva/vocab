@@ -1,0 +1,333 @@
+---
+title: "CLT Results"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+library(tidyverse)
+library(jsonlite)
+library(stringr)
+library(ggpubr)
+library(tidyboot)
+library(readxl)
+library(brms)
+library(ggthemes)
+library(writexl)
+library(ggdist)
+library(sf)
+```
+
+```{r}
+# MPI
+# rsync -zaP ccp-odcJ:/srv/ccp-odc/clt-extended/data/ ~/Work/Local/Quantex/vocab/data/clt_raw_data/
+
+# ZAS und kischawi
+
+# rsync -zaP ccp-odcJ:/srv/ccp-odc/clt-zas/data/ ~/Work/Local/Quantex/vocab/data/clt_raw_data_zas/
+```
+
+# Data 
+
+## MPI
+
+```{r, warning=F}
+files <- str_subset(dir("../data/clt_raw_data/", pattern = ".json"), pattern = "DELETE", negate = TRUE) 
+
+pilot <- str_subset(dir("../data/clt_pilot_data/", pattern = ".json"), pattern = "DELETE", negate = TRUE) 
+
+files <- files[!files %in% pilot]
+
+exlcude <- dir("../data/clt_raw_data/", pattern = "DELETE")%>%
+  as_tibble()%>%
+  separate(value, into = c("rest", "subjID"), sep = "-")%>%
+  mutate(subjID = str_replace(subjID, "DELETE",""))%>%
+  select(subjID)
+
+raw_data <- data_frame()
+for (f in files) {
+  jf <- paste("../data/clt_raw_data/",f,sep="")
+  jd <- jsonlite::fromJSON(paste(readLines(jf), collapse=""))
+  subjID <- jd$meta$subjID
+  order <- jd$meta$order
+  add <- as_data_frame(jd$data) %>% mutate(subjID = subjID,
+                                                 order = order)
+  raw_data <- bind_rows(raw_data, add)
+}
+
+# filter out DELETE subjID
+filtered_data <- raw_data%>%
+  filter(!subjID %in% exlcude$subjID)%>%
+  mutate(test_day = substr(timestamp, 0,10),
+         test_day = as.Date(test_day,"%Y-%m-%d"))
+
+# merge with aoa data
+aoa <-  read_xlsx("../data/word_list.xlsx")%>%
+  select(german,english, aoa_german_comb)%>%
+  filter(german != "rakete")%>%
+  rename(targetWord = english)%>%
+  mutate(targetWord = ifelse(targetWord == "frying pan", "fryingpan", targetWord),
+         targetWord = ifelse(targetWord == "courgette", "zucchini", targetWord),
+         targetWord = ifelse(targetWord == "rocket", "arugula", targetWord),
+         targetWord = ifelse(targetWord == "palm tree", "palmtree", targetWord))%>%
+  filter(german != "kappe", 
+         german != "karotte", 
+         german != "mohrrübe")%>%
+  distinct(german, .keep_all = T)%>%
+  mutate(group = cut(aoa_german_comb, 
+                   breaks=c(0, 3.5, 6, Inf), 
+                   labels=c("low","middle","high")))
+
+
+
+```
+
+```{r}
+dem <- bind_rows(
+  read_xlsx("../../../../Cloud/Shared/CLT_Kinderlisten_fuer_Emailversandt_14032022.xlsx", sheet = 1),
+  read_xlsx("../../../../Cloud/Shared/CLT_Kinderlisten_fuer_Emailversandt_14032022.xlsx", sheet = 2),
+  read_xlsx("../../../../Cloud/Shared/CLT_Kinderlisten_fuer_Emailversandt_14032022.xlsx", sheet = 3),
+  read_xlsx("../../../../Cloud/Shared/CLT_Kinderlisten_fuer_Emailversandt_14032022.xlsx", sheet = 4),
+  read_xlsx("../../../../Cloud/Shared/CLT_Kinderlisten_fuer_Emailversandt_14032022.xlsx", sheet = 5),
+  read_xlsx("../../../../Cloud/Shared/CLT_Kinderlisten_fuer_Emailversandt_14032022.xlsx", sheet = 7),
+  read_xlsx("../../../../Cloud/Shared/CLT_Kinderlisten_fuer_Emailversandt_14032022.xlsx", sheet = 10),
+  read_xlsx("../../../../Cloud/Shared/CLT_Kinderlisten_fuer_Emailversandt_14032022.xlsx", sheet = 12)
+  )%>%
+  select(code,g,`geb.tag`)%>%
+  rename(subjID = "code", birth_day = "geb.tag", sex = "g")%>%
+  mutate(birth_day = as.Date(birth_day, "%d.%m.%Y"),
+         sex = ifelse(sex == "w","f","m"))%>%
+  add_row(subjID = "leon", sex = "m", birth_day = as.Date("2015-09-03","%Y-%m-%d"))%>%
+  add_row(subjID = "joshi", sex = "m", birth_day = as.Date("2017-06-01","%Y-%m-%d"))%>%
+  distinct(subjID,.keep_all = T)
+  
+```
+
+```{r}
+dem%>%
+  group_by(subjID)%>%
+  summarise(n=n())%>%
+  filter(n >1)
+  
+```
+
+
+```{r}
+data_mpi <- filtered_data%>%
+  group_by(subjID)%>%
+  distinct(trial, .keep_all = T)%>%
+  mutate(correct = ifelse(targetWord == chosenWord, 1,0))%>%
+  mutate(targetWord = ifelse(targetWord == "kangoroo", "kangaroo", targetWord))%>%
+  left_join(aoa)%>%
+  left_join(dem)%>%
+  select(-timestamp)%>%
+  ungroup()%>%
+  mutate(age = as.numeric(difftime(test_day, birth_day, "days"))/365.25,
+         age_group = substr(age,0,1))%>%
+  select(-birth_day, -test_day)%>%
+  filter(!is.na(age))%>%
+  ungroup()
+```
+
+## ZAS and kischawi
+
+```{r, warning=F}
+files_zas <- str_subset(dir("../data/clt_raw_data_zas/", pattern = ".json"), pattern = "DELETE", negate = TRUE) 
+
+files_zas <- files_zas[!files_zas %in% pilot]
+
+raw_data_zas <- data_frame()
+for (f in files_zas) {
+  jf <- paste("../data/clt_raw_data_zas/",f,sep="")
+  jd <- jsonlite::fromJSON(paste(readLines(jf), collapse=""))
+  subjID <- jd$meta$subjID
+  order <- jd$meta$order
+  add <- as_data_frame(jd$data) %>% mutate(subjID = subjID,
+                                                 order = order)
+  raw_data_zas <- bind_rows(raw_data_zas, add)
+}
+
+proc_data_zas <- raw_data_zas%>%
+  mutate(subjID2 = subjID)%>%
+  separate(subjID2, into = c("bday","sex","postcode"), sep="_")%>%
+  mutate(test_day = substr(timestamp, 0,10),
+         test_day = as.Date(test_day,"%Y-%m-%d"),
+         bday  = as.Date(bday,"%d-%m-%Y"),
+         age = as.numeric(difftime(test_day, bday, units = "days"))/365.25,
+         sex = tolower(sex))
+
+data_zas <- proc_data_zas%>%
+  left_join(aoa)%>%
+  select(-timestamp)%>%
+  ungroup()%>%
+  mutate(age_group = substr(age,0,1))%>%
+  select(-bday, -test_day)%>%
+  filter(!is.na(age))%>%
+  ungroup()
+
+```
+
+## Merge data
+
+```{r}
+data <- bind_rows(
+  data_mpi%>%mutate(source = "mpi", postcode = "04103"),
+  #data_zas%>%mutate(source = "zas_kischawi")
+)
+```
+
+```{r}
+write_csv(data,"../data/clt_clean_data")
+```
+
+
+# Quality checks
+
+```{r}
+data%>%
+  group_by(subjID)%>%
+  summarise(n = n())
+
+data%>%
+  group_by(age_group)%>%
+  summarise(n = length(unique(subjID)))
+
+data%>%
+  summarise(n = length(unique(subjID)))
+
+
+data%>%
+  group_by(source)%>%
+  summarise(n = length(unique(subjID)))
+
+data%>%
+  filter(source == "mpi")%>%
+  summarise(n = length(unique(subjID)))
+
+filtered_data%>%
+  summarise(n = length(unique(subjID)))
+  
+
+data%>%
+  group_by(sex)%>%
+  summarise(n = length(unique(subjID)))
+
+
+
+```
+# Reminder
+
+```{r}
+bind_rows(
+  read_xlsx("../../../../Cloud/Shared/CLT_Kinderlisten_fuer_Emailversandt_14032022.xlsx", sheet = 1),
+  read_xlsx("../../../../Cloud/Shared/CLT_Kinderlisten_fuer_Emailversandt_14032022.xlsx", sheet = 2),
+  read_xlsx("../../../../Cloud/Shared/CLT_Kinderlisten_fuer_Emailversandt_14032022.xlsx", sheet = 3)
+  )%>%
+  filter(!code %in% data$subjID)#%>%
+  #write_xlsx("../data/clt_reminder.xlsx")
+```
+
+
+
+# Descriptives
+
+```{r}
+data%>%
+  group_by(subjID)%>%
+  summarise(age = round(mean(age),2))%>%
+  ggplot(aes(x = age))+
+  geom_jitter(aes(y = 0),width =0, height = 0.02, pch = 1, alpha =.75)+
+  geom_density()+
+  #ylim(-1,1)+
+  theme_minimal()
+```
+
+
+```{r}
+p1 <- data%>%
+  group_by(targetWord, aoa_german_comb)%>%
+  tidyboot_mean(col = correct)
+
+ggplot(p1, aes(x = aoa_german_comb, y = mean))+
+  stat_cor(aes(label = paste(..r.label..)),r.accuracy = 0.01, cor.coef.name = "r", label.y = 0.85)+
+  geom_hline(yintercept = 0.25, lty = 3, alpha = .75)+
+  geom_pointrange(aes(ymin = ci_lower, ymax = ci_upper), alpha = .75)+
+  #geom_point( alpha = .75)+
+  geom_smooth(method = "lm")+
+  labs(x = "Rated age of acquisition", y = "Proportion correct")+
+  ylim(0,1)+
+  theme_minimal()
+```
+
+```{r}
+p1_1 <- data%>%
+  group_by(targetWord, order)%>%
+  tidyboot_mean(col = correct)
+
+p1_2 <- p1_1 %>%
+  select(-empirical_stat, -n)%>%
+  pivot_wider(values_from = c(mean, ci_lower,ci_upper), names_from = "order")
+
+ggplot(p1_2, aes(x = mean_orderA, y = mean_orderB))+
+  stat_cor(aes(label = paste(..r.label..)),r.accuracy = 0.01, cor.coef.name = "r")+
+  geom_abline(intercept = 0, slope = 1, lty = 3, alpha = .75)+
+  #geom_hline(yintercept = 0.25, alpha = .5)+
+  #geom_vline(xintercept = 0.25, alpha = .5)+
+  geom_errorbar(aes(xmin = ci_lower_orderA, xmax = ci_upper_orderA), alpha = .5)+
+  geom_errorbar(aes(ymin = ci_lower_orderB, ymax = ci_upper_orderB), alpha = .5)+
+  geom_point( size =2, stroke = 1, alpha= .75)+
+  labs(x = "Order A", y = "Order B")+
+  ylim(0,1)+
+  xlim(0,1)+
+  theme_minimal()
+```
+
+```{r}
+p2 <- data%>%
+  group_by(subjID, age)%>%
+  tidyboot_mean(col = correct)
+
+ggplot(p2, aes(x = age, y = mean))+
+  #stat_cor()+
+  geom_hline(yintercept = 0.25, lty = 3, alpha = .75)+
+  geom_pointrange(aes(ymin = ci_lower, ymax = ci_upper), alpha = .75)+
+  #geom_point( alpha = .75)+
+  geom_smooth(method = "lm")+
+  labs(x = "Age", y = "Proportion correct")+
+  ylim(0,1)+
+  xlim(3,8.2)+
+  theme_minimal()
+```
+
+```{r}
+dist <- data%>%
+  filter(correct ==0)%>%
+  group_by(targetWord, aoa_german_comb, chosenCategory)%>%
+  summarise(n = n())
+
+ggplot(dist, aes(x = reorder(targetWord,aoa_german_comb), y = n, fill = chosenCategory))+
+  geom_bar(stat ="identity")+
+  scale_fill_colorblind(name = "Distractor type", labels = c("Semantic","Phonological","Unrelated"))+
+  theme_minimal()+
+  labs(x = "Target word", y = "Count")+
+  theme(axis.text.x = element_text(angle = 45, hjust = 1),
+                legend.direction = "vertical",
+        legend.position = c(0.1,0.8), 
+        legend.spacing.y = unit(0, 'cm'))
+```
+
+# Location
+
+```{r}
+library(mapproj)
+library(raster)
+```
+
+
+```{r}
+germany <- getData(country = "Germany", level = 2)%>%
+  st_as_sf()
+
+postcodes <- read_csv("../data/plz-5stellig-daten.csv")%>%
+  separate(note, into = c("zip","NAME_2"), sep=" ")
+```
+

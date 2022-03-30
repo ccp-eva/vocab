@@ -8,11 +8,28 @@ library(tidyverse)
 library(ggpubr)
 library(tidyboot)
 library(brms)
+library(readxl)
 
 ```
 
 ```{r}
-data <- read_csv("../data/clt_clean_data")
+data <- read_csv("../data/clt_clean_data.csv")
+
+aoa <-  read_xlsx("../data/word_list.xlsx")%>%
+  select(german,english, aoa_german_comb)%>%
+  filter(german != "rakete")%>%
+  rename(targetWord = english)%>%
+  mutate(targetWord = ifelse(targetWord == "frying pan", "fryingpan", targetWord),
+         targetWord = ifelse(targetWord == "courgette", "zucchini", targetWord),
+         targetWord = ifelse(targetWord == "rocket", "arugula", targetWord),
+         targetWord = ifelse(targetWord == "palm tree", "palmtree", targetWord))%>%
+  filter(german != "kappe", 
+         german != "karotte", 
+         german != "mohrrübe")%>%
+  distinct(german, .keep_all = T)%>%
+  mutate(group = cut(aoa_german_comb, 
+                   breaks=c(0, 3.5, 6, Inf), 
+                   labels=c("low","middle","high")))
 ```
 
 # IRT models
@@ -24,6 +41,14 @@ irt_dat <- data%>%
 
 ## 1PL model
 
+```{r}
+prior_1pl <- 
+  prior("normal(0, 2)", class = "Intercept") +
+  prior("normal(0, 3)", class = "sd", group = "subjID") + 
+  prior("normal(0, 3)", class = "sd", group = "targetWord")
+```
+
+
 ### Model
 
 ```{r}
@@ -31,12 +56,13 @@ irt1 <- brm(
   data = irt_dat,
   family = brmsfamily("bernoulli", "logit"),
   correct ~ 1 + (1 | targetWord) + (1 | subjID),
-  prior = c(prior(normal(0, 1.5), class = Intercept),
-            prior(student_t(10, 0, 1), class = sd)),
-  cores = 4,
-  chains = 4,
-  iter = 8000
+  prior = prior_1pl,
+  cores = 6,
+  chains = 6,
+  iter = 6000
 )
+
+saveRDS(irt1, "../saves/irt1.rds")
 ```
 ### Model checks
 
@@ -203,6 +229,15 @@ icc1_dif %>%
 ### Model
 
 ```{r}
+prior_2pl <- 
+  prior("normal(0, 2)", class = "b", nlpar = "eta") +
+  prior("normal(0, 1)", class = "b", nlpar = "logalpha") +
+  prior("normal(0, 1)", class = "sd", group = "subjID", nlpar = "eta") + 
+  prior("normal(0, 3)", class = "sd", group = "targetWord", nlpar = "eta") +
+  prior("normal(0, 1)", class = "sd", group = "targetWord", nlpar = "logalpha")
+```
+
+```{r}
 irt2 <- brm(
   data = irt_dat,
   family = brmsfamily("bernoulli", "logit"),
@@ -212,15 +247,13 @@ irt2 <- brm(
     logalpha ~ 1 + (1 |i| targetWord),
     nl = TRUE
   ),
-  prior = c(prior(normal(0, 1.5), class = b, nlpar = eta),
-            prior(normal(0, 1), class = b, nlpar = logalpha),
-            prior(student_t(10, 0, 1), class = sd, nlpar = eta),
-            prior(student_t(10, 0, 1), class = sd, nlpar = logalpha),
-            prior(lkj(2), class = cor)),
-  cores = 4,
-  chains = 4,
-  iter = 8000
+  prior = prior_2pl,
+  cores = 6,
+  chains = 6,
+  iter = 6000
 )
+
+saveRDS(irt2, "../saves/irt2.rds")
 ```
 
 ### Model checks
@@ -358,7 +391,18 @@ tic2%>%
 
 ## 3PL model
 
+
 ### Model
+
+```{r}
+prior_3pl_fixed <- 
+  prior("normal(0, 2)", class = "b", nlpar = "eta") +
+  prior("normal(0, 1)", class = "b", nlpar = "logalpha") +
+  prior("normal(0, 1)", class = "sd", group = "subjID", nlpar = "eta") + 
+  prior("normal(0, 3)", class = "sd", group = "targetWord", nlpar = "eta") +
+  prior("normal(0, 1)", class = "sd", group = "targetWord", nlpar = "logalpha")
+```
+
 
 ```{r}
 irt3 <- brm(
@@ -370,15 +414,13 @@ irt3 <- brm(
     logalpha ~ 1 + (1 |i| targetWord),
     nl = TRUE
   ),
-  prior = c(prior(normal(0, 1.5), class = b, nlpar = eta),
-            prior(normal(0, 1), class = b, nlpar = logalpha),
-            prior(student_t(10, 0, 1), class = sd, nlpar = eta),
-            prior(student_t(10, 0, 1), class = sd, nlpar = logalpha),
-            prior(lkj(2), class = cor)),
-  cores = 4,
-  chains = 4,
-  iter = 8000
+  prior = prior_va_3pl,
+  cores = 6,
+  chains = 6,
+  iter = 6000
 )
+
+saveRDS(irt3, "../saves/irt3.rds")
 
 ```
 
@@ -390,6 +432,52 @@ summary(irt3)
 plot(irt3)
 
 pp_check(irt3)
+```
+
+### Easiness and discrimination
+
+```{r}
+
+beta <- item_pars_3pl_fixed[, , "beta_Intercept"] %>%
+  posterior_summary() %>%
+	as_tibble() %>%
+	rownames_to_column() 
+# slopes
+alpha <- item_pars_3pl_fixed[, , "logalpha_Intercept"] %>%
+  exp() %>%
+  sweep(1, person_sds_3pl_fixed, "*") %>%
+  posterior_summary() %>%
+	as_tibble() %>%
+	rownames_to_column()
+item_pars_3pl_fixed <- bind_rows(beta, alpha, .id = "nlpar") %>%
+	rename(item = "rowname") %>%
+	mutate(item = as.numeric(item)) %>%
+	mutate(
+	  nlpar = factor(nlpar, labels = c("Location", "Slope")),
+	  method = "MCMC-H"  
+	)
+
+
+coef_irt3 <- coef(irt3)
+
+eta <- coef_irt3$targetWord[, , "eta_Intercept"] %>%
+	as_tibble(rownames = "item")
+
+alpha <- coef_irt3$targetWord[, , "logalpha_Intercept"] %>%
+	exp() %>%
+	as_tibble(rownames = "item")
+
+params <- bind_rows(eta, alpha, .id = "nlpar") %>%
+	select(-Est.Error) %>%
+	mutate(nlpar = factor(nlpar, labels = c("Easiness", "Discrimination")))%>%
+  left_join(aoa%>%rename(item = targetWord))
+
+ggplot(params,aes(reorder(item, -aoa_german_comb), Estimate, ymin = Q2.5, ymax = Q97.5)) +
+	facet_wrap("nlpar", scales = "free_x") +
+	geom_pointrange() +
+	coord_flip() +
+	labs(x = "Item")+
+  theme_minimal()
 ```
 
 ### ICC
@@ -428,6 +516,8 @@ icc3 %>%
   theme_minimal()
 ```
 
+### IIC 
+
 ```{r}
 iic3 <- posterior_samples(irt3)%>% 
   select(b_eta_Intercept, b_logalpha_Intercept, starts_with("r_targetWord"))%>%
@@ -440,7 +530,7 @@ iic3 <- posterior_samples(irt3)%>%
   expand(nesting(iter, b_eta_Intercept, b_logalpha_Intercept, item, xi, logalpha),
          theta = seq(from = -6, to = 6, length.out = 100)) %>% 
   # note the difference in the equation
-  mutate(p = 0.25+0.75*(inv_logit_scaled(exp(b_logalpha_Intercept + logalpha) * (b_eta_Intercept + theta + xi))))%>%
+  mutate(p = inv_logit_scaled(exp(b_logalpha_Intercept + logalpha) * (b_eta_Intercept + theta + xi)))%>%
   mutate(i = p * (1 - p)) %>% 
   group_by(theta, item) %>% 
   summarise(i = median(i))%>%
@@ -457,6 +547,28 @@ iic3%>%
        y = "information") +
   theme_minimal()
 ```
+
+### Differential Item Functioning
+
+```{r}
+irt3 <- brm(
+  data = irt_dat,
+  family = brmsfamily("bernoulli", "identity"),
+  bf(
+    correct ~ 0.25 + 0.75 * inv_logit(exp(logalpha) * eta),
+    eta ~ 1 + (1 |i| targetWord) + (1 | subjID),
+    logalpha ~ 1 + (1 |i| targetWord),
+    nl = TRUE
+  ),
+  prior = prior_va_3pl,
+  cores = 6,
+  chains = 6,
+  iter = 6000
+)
+
+saveRDS(irt3, "../saves/irt3.rds")
+```
+
 
 ## Model comparison
 

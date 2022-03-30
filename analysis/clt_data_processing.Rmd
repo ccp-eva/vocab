@@ -176,7 +176,7 @@ data <- bind_rows(
 ```
 
 ```{r}
-write_csv(data,"../data/clt_clean_data")
+write_csv(data,"../data/clt_clean_data.csv")
 ```
 
 
@@ -257,6 +257,20 @@ ggplot(p1, aes(x = aoa_german_comb, y = mean))+
   ylim(0,1)+
   theme_minimal()
 ```
+
+```{r}
+p1%>%
+  mutate(targetWord = factor(targetWord))%>%
+  ggplot(., aes(x = reorder(targetWord, -aoa_german_comb), y = mean))+
+  geom_hline(yintercept = 0.25, lty = 3, alpha = .75)+
+  geom_pointrange(aes(ymin = ci_lower, ymax = ci_upper), alpha = .75)+
+  #geom_point( alpha = .75)+
+  labs(x = "Item", y = "Proportion correct")+
+  ylim(0,1)+
+  theme_minimal()+
+  coord_flip()
+```
+
 
 ```{r}
 p1_1 <- data%>%

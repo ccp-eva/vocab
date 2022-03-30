@@ -57,6 +57,7 @@ irt1 <- brm(
   family = brmsfamily("bernoulli", "logit"),
   correct ~ 1 + (1 | targetWord) + (1 | subjID),
   prior = prior_1pl,
+  control = list(adapt_delta = 0.9)
   cores = 6,
   chains = 6,
   iter = 6000
@@ -248,6 +249,7 @@ irt2 <- brm(
     nl = TRUE
   ),
   prior = prior_2pl,
+  control = list(adapt_delta = 0.9),
   cores = 6,
   chains = 6,
   iter = 6000
@@ -415,6 +417,7 @@ irt3 <- brm(
     nl = TRUE
   ),
   prior = prior_va_3pl,
+  control = list(adapt_delta = 0.9),
   cores = 6,
   chains = 6,
   iter = 6000
@@ -437,27 +440,6 @@ pp_check(irt3)
 ### Easiness and discrimination
 
 ```{r}
-
-beta <- item_pars_3pl_fixed[, , "beta_Intercept"] %>%
-  posterior_summary() %>%
-	as_tibble() %>%
-	rownames_to_column() 
-# slopes
-alpha <- item_pars_3pl_fixed[, , "logalpha_Intercept"] %>%
-  exp() %>%
-  sweep(1, person_sds_3pl_fixed, "*") %>%
-  posterior_summary() %>%
-	as_tibble() %>%
-	rownames_to_column()
-item_pars_3pl_fixed <- bind_rows(beta, alpha, .id = "nlpar") %>%
-	rename(item = "rowname") %>%
-	mutate(item = as.numeric(item)) %>%
-	mutate(
-	  nlpar = factor(nlpar, labels = c("Location", "Slope")),
-	  method = "MCMC-H"  
-	)
-
-
 coef_irt3 <- coef(irt3)
 
 eta <- coef_irt3$targetWord[, , "eta_Intercept"] %>%
@@ -573,9 +555,9 @@ saveRDS(irt3, "../saves/irt3.rds")
 ## Model comparison
 
 ```{r}
-irt1 <- add_criterion(irt1, "loo") 
-irt2 <- add_criterion(irt2, "loo") 
-irt3 <- add_criterion(irt3, "loo") 
+irt1 <- add_criterion(irt1, "loo", moment_match = TRUE) 
+irt2 <- add_criterion(irt2, "loo", moment_match = TRUE) 
+irt3 <- add_criterion(irt3, "loo", moment_match = TRUE) 
 
 loo_compare(irt1, irt2, irt3)%>%as_tibble(rownames = "model")
 ```
@@ -585,7 +567,9 @@ loo_compare(irt1, irt2, irt3)%>%as_tibble(rownames = "model")
 ```{r}
 library(mirt)
 
-remove <- c("eye", "star", "telephone", "strawberry", "plane" ,"snake" ,"fish" ,"giraffe", "bicycle", "belt", "mushroom", "zebra" ,"kangaroo")
+remove <- c("eye" ,"telephone" ,"strawberry", "plane" ,"snake" ,"fish", "giraffe", "bicycle" ,"belt")
+
+
 
 firt_dat <- irt_dat%>%
   filter(!targetWord %in% remove)%>%
@@ -601,37 +585,87 @@ firt_2F <- mirt(firt_dat, 2, itemtype = "3PL")
 
 anova(firt_1F, firt_2F)
 
-firt1 <- mirt(firt_dat, 1, itemtype = "Rasch")
-firt2 <- mirt(firt_dat, 1, itemtype = "2PL")
-firt3 <- mirt(firt_dat, 1, itemtype = "3PL")
+firt1 <- mirt(firt_dat, 1, itemtype = "Rasch",  guess = .25)
+firt2 <- mirt(firt_dat, 1, itemtype = "2PL",  guess = .25)
+firt3 <- mirt(firt_dat, 1, itemtype = "3PL",  guess = .25)
 
-
-
-coef(firt1,
-     simplify = T,
-     IRTpars = T)
-
-anova(firt1, firt3)
+anova(firt3,firt2)
 
 summary(firt_2F)
-  
-
-as_tibble(x$rotF, rownames = "targetWord")%>%
-  left_join(aoa)%>%
-  ggplot(aes(x = F1, y=F2, col = aoa_german_comb))+
-  theme_minimal()+
-  geom_point()
-
-coef(firt_2F)
-
-str(x)
+```
+```{r}
+coefs2PL <- coef(firt2,
+     simplify = T,
+     IRTpars = T)$items%>%
+  as_tibble(rownames = "item")
 ```
 
 
 
 ```{r}
+traceline <- NULL
+for(i in 1:43){
+extr.2 <- extract.item(firt2, i)
+Theta <- matrix(seq(-6,6, by = .1))
+traceline[[i]] <- probtrace(extr.2, Theta)
+}
+
+# rename list
+names(traceline) <- paste0('item',1:length(traceline))
+
+# rbind traceline
+traceline.df <- do.call(rbind, traceline)
+
+# create item names length based on length of theta provided
+item <- rep(names(traceline),each=length(Theta))
+
+# put them all together into a dataframe
+l.format <- cbind.data.frame(Theta, item, traceline.df)
+
+
+l.format$item<-as.factor(l.format$item)
+aux<-l.format %>%
+  group_by(item) %>%
+  slice(which.min(abs(P.1-0.5))) # We are only using the P.1 column (dichotomous)
+
+aux<-aux[order(aux$Theta),]
+ord<-as.integer(aux$item)
+l.format$item = factor(l.format$item,levels(l.format$item)[ord])
+
+names <- irt_dat%>%
+  filter(!targetWord %in% remove)%>%
+  distinct(targetWord, .keep_all = T)%>%
+  select(targetWord)%>%
+  mutate(item = paste0("item",row_number()))
+
+format <- l.format%>%left_join(names)
+
+# plot chart
+ggplot(format, aes(Theta, P.1)) + 
+  geom_line() + 
+  #ggtitle('Probability Tracelines') + 
+  xlab(expression(theta)) + 
+  ylab(expression(P(theta))) + 
+  facet_wrap(~targetWord)+
+  ylim(0,1)+
+  #geom_hline(aes(yintercept = 0.5)) +
+  theme_bw() + 
+  theme(
+        axis.text.x=element_text(colour="black"),
+        axis.text.y=element_text(colour="black"),
+        legend.title=element_blank())
+```
+```{r}
+plot(firt2, type='trace', which.item = c(1:43), facet_items=T, 
+     as.table = TRUE, auto.key=list(points=F, lines=T, columns=4, space = 'top', cex = .8), 
+              theta_lim = c(-6, 6), 
+     main = "")
+```
+
+
+```{r}
 for(i in 1:length(firt_dat)){
-  ItemPlot <- itemfit(firt3, 
+  ItemPlot <- itemfit(firt2, 
                       group.bins=15,
                       empirical.plot = i,
                       empirical.CI = .95,

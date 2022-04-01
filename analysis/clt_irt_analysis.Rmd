@@ -37,7 +37,7 @@ aoa <-  read_xlsx("../data/word_list.xlsx")%>%
 
 ```{r}
 irt_dat <- data%>%
-  select(subjID, targetWord, correct)
+  select(subjID, targetWord, correct, order, sex)
 ```
 
 ## 1PL model
@@ -534,13 +534,13 @@ iic3%>%
 ### Differential Item Functioning
 
 ```{r}
-irt3 <- brm(
+irt3_dif <- brm(
   data = irt_dat,
   family = brmsfamily("bernoulli", "identity"),
   bf(
     correct ~ 0.25 + 0.75 * inv_logit(exp(logalpha) * eta),
-    eta ~ 1 + (1 |i| targetWord) + (1 | subjID),
-    logalpha ~ 1 + (1 |i| targetWord),
+    eta ~ 1 + (sex |i| targetWord) + (1 | subjID),
+    logalpha ~ 1 + (sex |i| targetWord),
     nl = TRUE
   ),
   prior = prior_va_3pl,
@@ -549,7 +549,7 @@ irt3 <- brm(
   iter = 6000
 )
 
-saveRDS(irt3, "../saves/irt3.rds")
+saveRDS(irt3_dif, "../saves/irt3_dif.rds")
 ```
 
 

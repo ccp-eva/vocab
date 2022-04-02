@@ -10,6 +10,7 @@ library(tidyboot)
 library(brms)
 library(readxl)
 library(ggthemes)
+library(geomtextpath)
 
 ```
 
@@ -488,6 +489,8 @@ icc3 <- posterior_samples(irt3)%>%
 icc3 %>% 
   ggplot(aes(x = theta, y = p,group = item, col = aoa_german_comb)) +
   geom_line() +
+  #geom_textline(aes(label = item)) +
+  #geom_texthline(yintercept = 0.25, lty = 3, alpha = .75, label = "guessing",hjust = 0.8)+
   geom_hline(yintercept = 0.25, lty = 3, alpha = .75)+
   #facet_wrap(~group)+
   #guides(col = F)+
@@ -498,6 +501,25 @@ icc3 %>%
   ylim(0,1)+
   theme_minimal()
 ```
+
+```{r}
+icc3 %>% 
+  ggplot(aes(x = theta, y = p, group = item)) +
+  geom_line(data = select(icc3, -item),aes(group = german), alpha = .25, col ="grey") +
+  geom_line(col = "firebrick") +
+  #geom_textline(aes(label = item)) +
+  #geom_texthline(yintercept = 0.25, lty = 3, alpha = .75, label = "guessing",hjust = 0.8)+
+  geom_hline(yintercept = 0.25, lty = 3, alpha = .75)+
+  facet_wrap(~item)+
+  #guides(col = F)+
+  scale_color_viridis_d(name = "AoA") +
+  labs(title = "ICCs for the 3PL",
+       x = expression(theta~('ability on the logit scale')),
+       y = expression(italic(p)(y==1))) +
+  ylim(0,1)+
+  theme_minimal()
+```
+
 
 ### IIC 
 
@@ -531,7 +553,9 @@ iic3%>%
   theme_minimal()
 ```
 
-### Differential Item Functioning
+## Differential Item Functioning
+
+### Model
 
 ```{r}
 irt3_dif <- brm(
@@ -539,8 +563,8 @@ irt3_dif <- brm(
   family = brmsfamily("bernoulli", "identity"),
   bf(
     correct ~ 0.25 + 0.75 * inv_logit(exp(logalpha) * eta),
-    eta ~ 1 + (sex |i| targetWord) + (1 | subjID),
-    logalpha ~ 1 + (sex |i| targetWord),
+    eta ~ 1 + (0+ sex |i| targetWord) + (1 | subjID),
+    logalpha ~ 1 + (0+ sex |i| targetWord),
     nl = TRUE
   ),
   prior = prior_va_3pl,
@@ -552,27 +576,68 @@ irt3_dif <- brm(
 saveRDS(irt3_dif, "../saves/irt3_dif.rds")
 ```
 
+```{r}
+coef_irt3_dif <- coef(irt3_dif)
+
+eta <- bind_rows(
+  coef_irt3_dif$targetWord[, , "eta_sexf"] %>%
+	as_tibble(rownames = "item")%>%mutate(sex = "female"),
+  coef_irt3_dif$targetWord[, , "eta_sexm"] %>%
+	as_tibble(rownames = "item")%>%mutate(sex = "male")
+  )%>%mutate(nlpar = "Easiness")
+
+alpha <- 
+  bind_rows(
+    coef_irt3_dif$targetWord[, , "logalpha_sexf"] %>%
+	exp() %>%
+	as_tibble(rownames = "item")%>%mutate(sex = "female"),
+	    coef_irt3_dif$targetWord[, , "logalpha_sexm"] %>%
+	exp() %>%
+	as_tibble(rownames = "item")%>%mutate(sex = "male")
+  )%>%mutate(nlpar = "Discrimination")
+
+params <- bind_rows(eta, alpha) %>%
+	select(-Est.Error) %>%
+  left_join(aoa%>%rename(item = targetWord))
+
+ggplot(params,aes(reorder(item, -aoa_german_comb), Estimate, ymin = Q2.5, ymax = Q97.5)) +
+	facet_wrap("nlpar", scales = "free_x") +
+	geom_pointrange(aes(col = sex), position = position_dodge(width = .5)) +
+	coord_flip() +
+  scale_color_colorblind()+
+	labs(x = "Item")+
+  theme_minimal()
+```
+
 
 ## Model comparison
 
 ```{r}
-irt1 <- add_criterion(irt1, "loo", moment_match = TRUE) 
-irt2 <- add_criterion(irt2, "loo", moment_match = TRUE) 
-irt3 <- add_criterion(irt3, "loo", moment_match = TRUE) 
+irt1 <- add_criterion(irt1, "loo") 
+irt2 <- add_criterion(irt2, "loo") 
+irt3 <- add_criterion(irt3, "loo") 
 
 loo_compare(irt1, irt2, irt3)%>%as_tibble(rownames = "model")
+
+
 ```
+
+```{r}
+irt3_dif <- add_criterion(irt3_dif, "loo") 
+
+loo_compare(irt3, irt3_dif)%>%as_tibble(rownames = "model")
+```
+
 
 # Frequentist IRT
 
 ```{r}
 library(mirt)
 
-remove <- c("eye" ,"telephone" ,"strawberry", "plane" ,"snake" ,"fish", "giraffe", "bicycle" ,"belt")
-
-
+remove <- c("telephone", "strawberry" ,"plane" ,"snake" ,"fish", "belt")
 
 firt_dat <- irt_dat%>%
+  select(-sex, -order)%>%
   filter(!targetWord %in% remove)%>%
   group_by(subjID)%>%
   distinct(targetWord, .keep_all = T)%>%
@@ -581,18 +646,18 @@ firt_dat <- irt_dat%>%
   select(-subjID)
 
 
-firt_1F <- mirt(firt_dat, 1, itemtype = "2PL",  guess = .25,technical = list(NCYCLES = 1000))
-firt_2F <- mirt(firt_dat, 2, itemtype = "2PL",technical = list(NCYCLES = 1000))
+firt_1F <- mirt(firt_dat, 1, itemtype = "2PL",  guess = .25,technical = list(NCYCLES = 5000))
+firt_2F <- mirt(firt_dat, 2, itemtype = "2PL",  guess = .25,technical = list(NCYCLES = 5000))
 
 anova(firt_1F, firt_2F)
 
 firt1 <- mirt(firt_dat, 1, itemtype = "Rasch",  guess = .25)
-firt2 <- mirt(firt_dat, 1, itemtype = "2PL",  guess = .25,technical = list(NCYCLES = 1000), SE = T)
+firt2 <- mirt(firt_dat, 1, itemtype = "2PL",  guess = .25,technical = list(NCYCLES = 5000), SE = T)
 firt3 <- mirt(firt_dat, 1, itemtype = "3PL",  guess = .25)
 
 anova(firt1,firt2)
+anova(firt2,firt3)
 
-summary(firt_2F)
 ```
 
 ```{r}
@@ -655,7 +720,7 @@ ggplot(format, aes(Theta, P.1, col = aoa_german_comb, group = item)) +
   #facet_wrap(~targetWord)+
   ylim(0,1)+
   scale_color_viridis_c(name = "AoA") +
-  #geom_hline(aes(yintercept = 0.5)) +
+  geom_hline(yintercept = 0.25, lty = 3, alpha = .75) +
   theme_bw() + 
   theme(
         axis.text.x=element_text(colour="black"),
@@ -701,12 +766,87 @@ params%>%left_join(coefs2PL)%>%
   facet_grid(~nlpar)+
   labs(x = "Bayesian estimate", y = "Frequentist estimate")+
   stat_cor()+
-  #ylim(-10,10)+
+  ylim(-10,10)+
   #xlim(-10,10)+
   #coord_fixed(ratio = 1)+
   scale_color_viridis_c()+
   theme_bw()
 ```
+# Correlation subtest and full test
+
+```{r}
+select <-params %>%
+  pivot_wider(names_from = nlpar, values_from = Estimate)%>%
+  arrange(
+    #Easiness, 
+    -Discrimination
+    )%>%
+  slice(1:15)#%>%
+  pull("item")
+
+full <- data%>%
+  group_by(subjID)%>%
+  summarise(mean_full = mean(correct))
+
+sub <- data%>%
+  filter(targetWord %in% select)%>%
+  group_by(subjID)%>%
+  summarise(mean_sub = mean(correct))
+
+comp <- full%>%left_join(sub)
+
+ggplot(comp, aes(x = mean_full, y = mean_sub))+
+  geom_abline(intercept = 0, slope = 1, lty = 2, alpha = .75)+
+  geom_jitter(pch = 1, alpha = .75, height = 0.01, width = 0.01)+
+  stat_cor()+
+  ylim(0,1.02)+
+  xlim(0,1.02)+
+  theme_minimal()
+
+```
+
+```{r}
+
+dat <- tibble(
+  iter = c(),
+  items = c(),
+  cor = c(),
+)
+
+full <- data%>%
+  group_by(subjID)%>%
+  summarise(mean_full = mean(correct))
+
+for (i in 1:1000) {
+
+  items <-params %>% pull("item")
+
+  sel_items <- sample(items, 15)
+
+  sub <- data%>%
+  filter(targetWord %in% sel_items)%>%
+  group_by(subjID)%>%
+  summarise(mean_sub = mean(correct))
+
+  cor <- cor(full$mean_full,sub$mean_sub)
+
+  df <- tibble(
+    iter = i,
+    items = sel_items,
+    cor = cor
+  )
+  
+  dat <- bind_rows(dat,df)
+
+}
+
+dat%>%
+  group_by(items)%>%
+  summarise(mean_cor = mean(cor))%>%
+  arrange(-mean_cor)
+  
+```
+
 
 
 # Sources

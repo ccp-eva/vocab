@@ -15,6 +15,7 @@ library(ggthemes)
 library(writexl)
 library(ggdist)
 library(sf)
+library(geomtextpath)
 ```
 
 ```{r}
@@ -63,12 +64,14 @@ filtered_data <- raw_data%>%
 # merge with aoa data
 aoa <-  read_xlsx("../data/word_list.xlsx")%>%
   select(german,english, aoa_german_comb)%>%
-  filter(german != "rakete")%>%
+  filter(german != "rakete",
+         german != "hobel")%>%
   rename(targetWord = english)%>%
   mutate(targetWord = ifelse(targetWord == "frying pan", "fryingpan", targetWord),
          targetWord = ifelse(targetWord == "courgette", "zucchini", targetWord),
          targetWord = ifelse(targetWord == "rocket", "arugula", targetWord),
-         targetWord = ifelse(targetWord == "palm tree", "palmtree", targetWord))%>%
+         targetWord = ifelse(targetWord == "palm tree", "palmtree", targetWord),
+         targetWord = ifelse(targetWord == "airplane", "plane", targetWord))%>%
   filter(german != "kappe", 
          german != "karotte", 
          german != "mohrrübe")%>%
@@ -77,8 +80,7 @@ aoa <-  read_xlsx("../data/word_list.xlsx")%>%
                    breaks=c(0, 3.5, 6, Inf), 
                    labels=c("low","middle","high")))
 
-
-
+  
 ```
 
 ```{r}
@@ -131,38 +133,38 @@ data_mpi <- filtered_data%>%
 ## ZAS and kischawi
 
 ```{r, warning=F}
-files_zas <- str_subset(dir("../data/clt_raw_data_zas/", pattern = ".json"), pattern = "DELETE", negate = TRUE) 
-
-files_zas <- files_zas[!files_zas %in% pilot]
-
-raw_data_zas <- data_frame()
-for (f in files_zas) {
-  jf <- paste("../data/clt_raw_data_zas/",f,sep="")
-  jd <- jsonlite::fromJSON(paste(readLines(jf), collapse=""))
-  subjID <- jd$meta$subjID
-  order <- jd$meta$order
-  add <- as_data_frame(jd$data) %>% mutate(subjID = subjID,
-                                                 order = order)
-  raw_data_zas <- bind_rows(raw_data_zas, add)
-}
-
-proc_data_zas <- raw_data_zas%>%
-  mutate(subjID2 = subjID)%>%
-  separate(subjID2, into = c("bday","sex","postcode"), sep="_")%>%
-  mutate(test_day = substr(timestamp, 0,10),
-         test_day = as.Date(test_day,"%Y-%m-%d"),
-         bday  = as.Date(bday,"%d-%m-%Y"),
-         age = as.numeric(difftime(test_day, bday, units = "days"))/365.25,
-         sex = tolower(sex))
-
-data_zas <- proc_data_zas%>%
-  left_join(aoa)%>%
-  select(-timestamp)%>%
-  ungroup()%>%
-  mutate(age_group = substr(age,0,1))%>%
-  select(-bday, -test_day)%>%
-  filter(!is.na(age))%>%
-  ungroup()
+# files_zas <- str_subset(dir("../data/clt_raw_data_zas/", pattern = ".json"), pattern = "DELETE", negate = TRUE) 
+# 
+# files_zas <- files_zas[!files_zas %in% pilot]
+# 
+# raw_data_zas <- data_frame()
+# for (f in files_zas) {
+#   jf <- paste("../data/clt_raw_data_zas/",f,sep="")
+#   jd <- jsonlite::fromJSON(paste(readLines(jf), collapse=""))
+#   subjID <- jd$meta$subjID
+#   order <- jd$meta$order
+#   add <- as_data_frame(jd$data) %>% mutate(subjID = subjID,
+#                                                  order = order)
+#   raw_data_zas <- bind_rows(raw_data_zas, add)
+# }
+# 
+# proc_data_zas <- raw_data_zas%>%
+#   mutate(subjID2 = subjID)%>%
+#   separate(subjID2, into = c("bday","sex","postcode"), sep="_")%>%
+#   mutate(test_day = substr(timestamp, 0,10),
+#          test_day = as.Date(test_day,"%Y-%m-%d"),
+#          bday  = as.Date(bday,"%d-%m-%Y"),
+#          age = as.numeric(difftime(test_day, bday, units = "days"))/365.25,
+#          sex = tolower(sex))
+# 
+# data_zas <- proc_data_zas%>%
+#   left_join(aoa)%>%
+#   select(-timestamp)%>%
+#   ungroup()%>%
+#   mutate(age_group = substr(age,0,1))%>%
+#   select(-bday, -test_day)%>%
+#   filter(!is.na(age))%>%
+#   ungroup()
 
 ```
 
@@ -244,13 +246,14 @@ data%>%
 
 ```{r}
 p1 <- data%>%
-  group_by(targetWord, aoa_german_comb)%>%
+  group_by(targetWord, aoa_german_comb, german)%>%
   tidyboot_mean(col = correct)
 
 ggplot(p1, aes(x = aoa_german_comb, y = mean))+
   stat_cor(aes(label = paste(..r.label..)),r.accuracy = 0.01, cor.coef.name = "r", label.y = 0.85)+
   geom_hline(yintercept = 0.25, lty = 3, alpha = .75)+
   geom_pointrange(aes(ymin = ci_lower, ymax = ci_upper), alpha = .75)+
+  geom_textpath(aes(label = german), hjust = -.2) +
   #geom_point( alpha = .75)+
   geom_smooth(method = "lm")+
   labs(x = "Rated age of acquisition", y = "Proportion correct")+
@@ -274,7 +277,7 @@ p1%>%
 
 ```{r}
 p1_1 <- data%>%
-  group_by(targetWord, order)%>%
+  group_by(targetWord,german, order)%>%
   tidyboot_mean(col = correct)
 
 p1_2 <- p1_1 %>%
@@ -284,6 +287,7 @@ p1_2 <- p1_1 %>%
 ggplot(p1_2, aes(x = mean_orderA, y = mean_orderB))+
   stat_cor(aes(label = paste(..r.label..)),r.accuracy = 0.01, cor.coef.name = "r")+
   geom_abline(intercept = 0, slope = 1, lty = 3, alpha = .75)+
+  geom_textpath(aes(label = german), hjust = -.2) +
   #geom_hline(yintercept = 0.25, alpha = .5)+
   #geom_vline(xintercept = 0.25, alpha = .5)+
   geom_errorbar(aes(xmin = ci_lower_orderA, xmax = ci_upper_orderA), alpha = .5)+

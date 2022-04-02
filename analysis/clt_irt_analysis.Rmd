@@ -19,12 +19,14 @@ data <- read_csv("../data/clt_clean_data.csv")
 
 aoa <-  read_xlsx("../data/word_list.xlsx")%>%
   select(german,english, aoa_german_comb)%>%
-  filter(german != "rakete")%>%
+  filter(german != "rakete",
+         german != "hobel")%>%
   rename(targetWord = english)%>%
   mutate(targetWord = ifelse(targetWord == "frying pan", "fryingpan", targetWord),
          targetWord = ifelse(targetWord == "courgette", "zucchini", targetWord),
          targetWord = ifelse(targetWord == "rocket", "arugula", targetWord),
-         targetWord = ifelse(targetWord == "palm tree", "palmtree", targetWord))%>%
+         targetWord = ifelse(targetWord == "palm tree", "palmtree", targetWord),
+         targetWord = ifelse(targetWord == "airplane", "plane", targetWord))%>%
   filter(german != "kappe", 
          german != "karotte", 
          german != "mohrrübe")%>%

@@ -555,63 +555,6 @@ iic3%>%
   theme_minimal()
 ```
 
-## Differential Item Functioning
-
-### Model
-
-```{r}
-irt3_dif <- brm(
-  data = irt_dat,
-  family = brmsfamily("bernoulli", "identity"),
-  bf(
-    correct ~ 0.25 + 0.75 * inv_logit(exp(logalpha) * eta),
-    eta ~ 1 + (0+ sex |i| targetWord) + (1 | subjID),
-    logalpha ~ 1 + (0+ sex |i| targetWord),
-    nl = TRUE
-  ),
-  prior = prior_va_3pl,
-  cores = 6,
-  chains = 6,
-  iter = 6000
-)
-
-saveRDS(irt3_dif, "../saves/irt3_dif.rds")
-```
-
-```{r}
-coef_irt3_dif <- coef(irt3_dif)
-
-eta <- bind_rows(
-  coef_irt3_dif$targetWord[, , "eta_sexf"] %>%
-	as_tibble(rownames = "item")%>%mutate(sex = "female"),
-  coef_irt3_dif$targetWord[, , "eta_sexm"] %>%
-	as_tibble(rownames = "item")%>%mutate(sex = "male")
-  )%>%mutate(nlpar = "Easiness")
-
-alpha <- 
-  bind_rows(
-    coef_irt3_dif$targetWord[, , "logalpha_sexf"] %>%
-	exp() %>%
-	as_tibble(rownames = "item")%>%mutate(sex = "female"),
-	    coef_irt3_dif$targetWord[, , "logalpha_sexm"] %>%
-	exp() %>%
-	as_tibble(rownames = "item")%>%mutate(sex = "male")
-  )%>%mutate(nlpar = "Discrimination")
-
-params <- bind_rows(eta, alpha) %>%
-	select(-Est.Error) %>%
-  left_join(aoa%>%rename(item = targetWord))
-
-ggplot(params,aes(reorder(item, -aoa_german_comb), Estimate, ymin = Q2.5, ymax = Q97.5)) +
-	facet_wrap("nlpar", scales = "free_x") +
-	geom_pointrange(aes(col = sex), position = position_dodge(width = .5)) +
-	coord_flip() +
-  scale_color_colorblind()+
-	labs(x = "Item")+
-  theme_minimal()
-```
-
-
 ## Model comparison
 
 ```{r}
@@ -621,13 +564,130 @@ irt3 <- add_criterion(irt3, "loo")
 
 loo_compare(irt1, irt2, irt3)%>%as_tibble(rownames = "model")
 
+```
 
+## Differential Item Functioning
+
+### Sex
+
+```{r}
+irt3_dif_sex <- brm(
+  data = irt_dat,
+  family = brmsfamily("bernoulli", "identity"),
+  bf(
+    correct ~ 0.25 + 0.75 * inv_logit(exp(logalpha) * eta),
+    eta ~ 1 + (0+ sex  |i| targetWord) + (1 | subjID),
+    logalpha ~ 1 + (0+ sex  |i| targetWord),
+    nl = TRUE
+  ),
+  prior = prior_va_3pl,
+  cores = 6,
+  chains = 6,
+  iter = 6000
+)
+
+saveRDS(irt3_dif_sex, "../saves/irt3_dif_sex.rds")
 ```
 
 ```{r}
-irt3_dif <- add_criterion(irt3_dif, "loo") 
+irt3_dif_sex <- add_criterion(irt3_dif_sex, "loo") 
 
-loo_compare(irt3, irt3_dif)%>%as_tibble(rownames = "model")
+loo_compare(irt3, irt3_dif_sex)%>%as_tibble(rownames = "model")
+```
+
+
+
+```{r}
+coef_irt3_dif_sex <- coef(irt3_dif_sex)
+
+eta_sex <- bind_rows(
+  coef_irt3_dif_sex$targetWord[, , "eta_sexf"] %>%
+	as_tibble(rownames = "item")%>%mutate(sex = "female"),
+  coef_irt3_dif_sex$targetWord[, , "eta_sexm"] %>%
+	as_tibble(rownames = "item")%>%mutate(sex = "male")
+  )%>%mutate(nlpar = "Easiness")
+
+alpha_sex <- 
+  bind_rows(
+    coef_irt3_dif_sex$targetWord[, , "logalpha_sexf"] %>%
+	exp() %>%
+	as_tibble(rownames = "item")%>%mutate(sex = "female"),
+	    coef_irt3_dif_sex$targetWord[, , "logalpha_sexm"] %>%
+	exp() %>%
+	as_tibble(rownames = "item")%>%mutate(sex = "male")
+  )%>%mutate(nlpar = "Discrimination")
+
+params_sex <- bind_rows(eta_sex, alpha_sex) %>%
+	select(-Est.Error) %>%
+  left_join(aoa%>%rename(item = targetWord))
+
+ggplot(params_sex,aes(reorder(item, -aoa_german_comb), Estimate, ymin = Q2.5, ymax = Q97.5)) +
+	facet_wrap("nlpar", scales = "free_x") +
+	geom_pointrange(aes(col = sex), position = position_dodge(width = .5)) +
+	coord_flip() +
+  scale_color_colorblind()+
+	labs(x = "Item")+
+  theme_minimal()
+```
+
+### Order
+
+```{r}
+irt3_dif_order <- brm(
+  data = irt_dat,
+  family = brmsfamily("bernoulli", "identity"),
+  bf(
+    correct ~ 0.25 + 0.75 * inv_logit(exp(logalpha) * eta),
+    eta ~ 1 + (0+ order  |i| targetWord) + (1 | subjID),
+    logalpha ~ 1 + (0+ order  |i| targetWord),
+    nl = TRUE
+  ),
+  prior = prior_va_3pl,
+  cores = 6,
+  chains = 6,
+  iter = 6000
+)
+
+saveRDS(irt3_dif_order, "../saves/irt3_dif_order.rds")
+```
+
+```{r}
+irt3_dif_order <- add_criterion(irt3_dif_order, "loo") 
+
+loo_compare(irt3, irt3_dif_order)%>%as_tibble(rownames = "model")
+```
+
+```{r}
+coef_irt3_dif_order <- coef(irt3_dif_order)
+
+eta_order <- bind_rows(
+  coef_irt3_dif_order$targetWord[, , "eta_orderorderA"] %>%
+	as_tibble(rownames = "item")%>%mutate(order = "A"),
+  coef_irt3_dif_order$targetWord[, , "eta_orderorderB"] %>%
+	as_tibble(rownames = "item")%>%mutate(order = "B")
+  )%>%mutate(nlpar = "Easiness")
+
+alpha_order <- 
+  bind_rows(
+    coef_irt3_dif_order$targetWord[, , "logalpha_orderorderA"] %>%
+      exp() %>%
+      as_tibble(rownames = "item")%>%mutate(order = "A"),
+    coef_irt3_dif_order$targetWord[, , "logalpha_orderorderB"] %>%
+      exp() %>%
+      as_tibble(rownames = "item")%>%mutate(order = "B")
+  )%>%mutate(nlpar = "Discrimination")
+
+params_order <- bind_rows(eta_order, alpha_order) %>%
+	select(-Est.Error) %>%
+  left_join(aoa%>%rename(item = targetWord))
+
+ggplot(params_order,aes(reorder(item, -aoa_german_comb), Estimate, ymin = Q2.5, ymax = Q97.5)) +
+	facet_wrap("nlpar", scales = "free_x") +
+	geom_pointrange(aes(col = order), position = position_dodge(width = .5)) +
+	coord_flip() +
+  scale_color_colorblind()+
+	labs(x = "Item")+
+  theme_minimal()
 ```
 
 
@@ -648,8 +708,8 @@ firt_dat <- irt_dat%>%
   select(-subjID)
 
 
-firt_1F <- mirt(firt_dat, 1, itemtype = "2PL",  guess = .25,technical = list(NCYCLES = 5000))
-firt_2F <- mirt(firt_dat, 2, itemtype = "2PL",  guess = .25,technical = list(NCYCLES = 5000))
+firt_1F <- mirt(firt_dat, 1, itemtype = "2PL",  guess = .25,technical = list(NCYCLES = 1000))
+firt_2F <- mirt(firt_dat, 2, itemtype = "2PL",  guess = .25,technical = list(NCYCLES = 1000))
 
 anova(firt_1F, firt_2F)
 

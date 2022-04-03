@@ -307,7 +307,7 @@ p2 <- data%>%
 ggplot(p2, aes(x = age, y = mean))+
   #stat_cor()+
   geom_hline(yintercept = 0.25, lty = 3, alpha = .75)+
-  geom_pointrange(aes(ymin = ci_lower, ymax = ci_upper), alpha = .75)+
+  geom_pointrange(aes(ymin = ci_lower, ymax = ci_upper), alpha = .25)+
   #geom_point( alpha = .75)+
   geom_smooth(method = "lm")+
   labs(x = "Age", y = "Proportion correct")+

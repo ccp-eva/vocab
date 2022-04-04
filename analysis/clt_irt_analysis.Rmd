@@ -67,6 +67,8 @@ irt1 <- brm(
   iter = 6000
 )
 
+irt1 <- add_criterion(irt1, "loo") 
+
 saveRDS(irt1, "../saves/irt1.rds")
 ```
 ### Model checks
@@ -259,6 +261,8 @@ irt2 <- brm(
   iter = 6000
 )
 
+irt2 <- add_criterion(irt2, "loo") 
+
 saveRDS(irt2, "../saves/irt2.rds")
 ```
 
@@ -427,6 +431,8 @@ irt3 <- brm(
   iter = 6000
 )
 
+irt3 <- add_criterion(irt3, "loo") 
+
 saveRDS(irt3, "../saves/irt3.rds")
 
 ```
@@ -558,12 +564,7 @@ iic3%>%
 ## Model comparison
 
 ```{r}
-irt1 <- add_criterion(irt1, "loo") 
-irt2 <- add_criterion(irt2, "loo") 
-irt3 <- add_criterion(irt3, "loo") 
-
 loo_compare(irt1, irt2, irt3)%>%as_tibble(rownames = "model")
-
 ```
 
 ## Differential Item Functioning
@@ -586,12 +587,12 @@ irt3_dif_sex <- brm(
   iter = 6000
 )
 
+irt3_dif_sex <- add_criterion(irt3_dif_sex, "loo") 
+
 saveRDS(irt3_dif_sex, "../saves/irt3_dif_sex.rds")
 ```
 
 ```{r}
-irt3_dif_sex <- add_criterion(irt3_dif_sex, "loo") 
-
 loo_compare(irt3, irt3_dif_sex)%>%as_tibble(rownames = "model")
 ```
 
@@ -648,12 +649,12 @@ irt3_dif_order <- brm(
   iter = 6000
 )
 
+irt3_dif_order <- add_criterion(irt3_dif_order, "loo") 
+
 saveRDS(irt3_dif_order, "../saves/irt3_dif_order.rds")
 ```
 
 ```{r}
-irt3_dif_order <- add_criterion(irt3_dif_order, "loo") 
-
 loo_compare(irt3, irt3_dif_order)%>%as_tibble(rownames = "model")
 ```
 

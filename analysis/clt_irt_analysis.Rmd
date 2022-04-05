@@ -818,6 +818,7 @@ pc %>%
   theme_minimal()
 
 ```
+
 ```{r}
 params%>%left_join(coefs2PL)%>%
   mutate(slope = ifelse(nlpar == "Easiness", -1,1))%>%
@@ -830,7 +831,7 @@ params%>%left_join(coefs2PL)%>%
   labs(x = "Bayesian estimate", y = "Frequentist estimate")+
   stat_cor()+
   ylim(-10,10)+
-  #xlim(-10,10)+
+  xlim(-10,10)+
   #coord_fixed(ratio = 1)+
   scale_color_viridis_c()+
   theme_bw()
@@ -841,10 +842,10 @@ params%>%left_join(coefs2PL)%>%
 select <-params %>%
   pivot_wider(names_from = nlpar, values_from = Estimate)%>%
   arrange(
-    #Easiness, 
-    -Discrimination
+    Easiness, 
+    #-Discrimination
     )%>%
-  slice(1:15)#%>%
+  slice(1:15)%>%
   pull("item")
 
 full <- data%>%

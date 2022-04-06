@@ -128,6 +128,13 @@ data_mpi <- filtered_data%>%
   select(-birth_day, -test_day)%>%
   filter(!is.na(age))%>%
   ungroup()
+
+# filtered_data%>%
+#   filter(trial == 1)%>%
+#   distinct(subjID, .keep_all = T)%>%
+#   left_join(dem)%>%
+#   select(subjID, sex, birth_day, test_day)%>%
+#   write_xlsx("../data/clt_participation_by_date.xlsx")
 ```
 
 ## ZAS and kischawi
@@ -219,14 +226,25 @@ data%>%
 # Reminder
 
 ```{r}
-bind_rows(
-  read_xlsx("../../../../Cloud/Shared/CLT_Kinderlisten_fuer_Emailversandt_14032022.xlsx", sheet = 1),
-  read_xlsx("../../../../Cloud/Shared/CLT_Kinderlisten_fuer_Emailversandt_14032022.xlsx", sheet = 2),
-  read_xlsx("../../../../Cloud/Shared/CLT_Kinderlisten_fuer_Emailversandt_14032022.xlsx", sheet = 3)
-  )%>%
-  filter(!code %in% data$subjID)#%>%
-  #write_xlsx("../data/clt_reminder.xlsx")
+# reminder1 <- read_xlsx("../../../../Cloud/Shared/CLT_Kinderlisten_fuer_Emailversandt_14032022.xlsx", sheet = 15)
+# 
+# bind_rows(
+#   read_xlsx("../../../../Cloud/Shared/CLT_Kinderlisten_fuer_Emailversandt_14032022.xlsx", sheet = 1),
+#   read_xlsx("../../../../Cloud/Shared/CLT_Kinderlisten_fuer_Emailversandt_14032022.xlsx", sheet = 2),
+#   read_xlsx("../../../../Cloud/Shared/CLT_Kinderlisten_fuer_Emailversandt_14032022.xlsx", sheet = 3),
+#   read_xlsx("../../../../Cloud/Shared/CLT_Kinderlisten_fuer_Emailversandt_14032022.xlsx", sheet = 4),
+#   read_xlsx("../../../../Cloud/Shared/CLT_Kinderlisten_fuer_Emailversandt_14032022.xlsx", sheet = 5),
+#   read_xlsx("../../../../Cloud/Shared/CLT_Kinderlisten_fuer_Emailversandt_14032022.xlsx", sheet = 7),
+#   read_xlsx("../../../../Cloud/Shared/CLT_Kinderlisten_fuer_Emailversandt_14032022.xlsx", sheet = 10),
+#   read_xlsx("../../../../Cloud/Shared/CLT_Kinderlisten_fuer_Emailversandt_14032022.xlsx", sheet = 12)
+#   )%>%
+#   filter(!code %in% data$subjID)%>%
+#   filter(!code %in% reminder1$code)%>%
+#   filter(code != "RY5sK3xF")%>%
+#   filter(code != "s6fdepZJ")%>%
+#   write_xlsx("../data/clt_reminder2.xlsx")
 ```
+
 
 
 
@@ -241,6 +259,7 @@ data%>%
   geom_density()+
   #ylim(-1,1)+
   theme_minimal()
+
 ```
 
 

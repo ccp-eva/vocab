@@ -708,14 +708,20 @@ firt_dat <- irt_dat%>%
   ungroup()%>%
   select(-subjID)
 
-
+# dimensionality
 firt_1F <- mirt(firt_dat, 1, itemtype = "2PL",  guess = .25,technical = list(NCYCLES = 1000))
 firt_2F <- mirt(firt_dat, 2, itemtype = "2PL",  guess = .25,technical = list(NCYCLES = 1000))
 
 anova(firt_1F, firt_2F)
 
+library(psych)
+
+unidim(firt_dat)
+
+
+
 firt1 <- mirt(firt_dat, 1, itemtype = "Rasch",  guess = .25)
-firt2 <- mirt(firt_dat, 1, itemtype = "2PL",  guess = .25,technical = list(NCYCLES = 5000), SE = T)
+firt2 <- mirt(firt_dat, 1, itemtype = "2PL",  guess = .25,technical = list(NCYCLES = 1000), SE = T)
 firt3 <- mirt(firt_dat, 1, itemtype = "3PL",  guess = .25)
 
 anova(firt1,firt2)

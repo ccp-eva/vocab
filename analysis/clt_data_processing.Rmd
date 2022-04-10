@@ -20,12 +20,13 @@ library(geomtextpath)
 
 ```{r}
 # MPI
-# rsync -zaP ccp-odcJ:/srv/ccp-odc/clt-extended/data/ ~/Work/Local/Quantex/vocab/data/clt_raw_data/
+system("rsync -zaP ccp-odcJ:/srv/ccp-odc/clt-extended/data/ ~/Work/Local/Quantex/vocab/data/clt_raw_data/")
 
 # ZAS und kischawi
-
-# rsync -zaP ccp-odcJ:/srv/ccp-odc/clt-zas/data/ ~/Work/Local/Quantex/vocab/data/clt_raw_data_zas/
+system("rsync -zaP ccp-odcJ:/srv/ccp-odc/clt-zas/data/ ~/Work/Local/Quantex/vocab/data/clt_raw_data_zas/")
 ```
+
+
 
 # Data 
 
@@ -140,38 +141,41 @@ data_mpi <- filtered_data%>%
 ## ZAS and kischawi
 
 ```{r, warning=F}
-# files_zas <- str_subset(dir("../data/clt_raw_data_zas/", pattern = ".json"), pattern = "DELETE", negate = TRUE) 
-# 
-# files_zas <- files_zas[!files_zas %in% pilot]
-# 
-# raw_data_zas <- data_frame()
-# for (f in files_zas) {
-#   jf <- paste("../data/clt_raw_data_zas/",f,sep="")
-#   jd <- jsonlite::fromJSON(paste(readLines(jf), collapse=""))
-#   subjID <- jd$meta$subjID
-#   order <- jd$meta$order
-#   add <- as_data_frame(jd$data) %>% mutate(subjID = subjID,
-#                                                  order = order)
-#   raw_data_zas <- bind_rows(raw_data_zas, add)
-# }
-# 
-# proc_data_zas <- raw_data_zas%>%
-#   mutate(subjID2 = subjID)%>%
-#   separate(subjID2, into = c("bday","sex","postcode"), sep="_")%>%
-#   mutate(test_day = substr(timestamp, 0,10),
-#          test_day = as.Date(test_day,"%Y-%m-%d"),
-#          bday  = as.Date(bday,"%d-%m-%Y"),
-#          age = as.numeric(difftime(test_day, bday, units = "days"))/365.25,
-#          sex = tolower(sex))
-# 
-# data_zas <- proc_data_zas%>%
-#   left_join(aoa)%>%
-#   select(-timestamp)%>%
-#   ungroup()%>%
-#   mutate(age_group = substr(age,0,1))%>%
-#   select(-bday, -test_day)%>%
-#   filter(!is.na(age))%>%
-#   ungroup()
+files_zas <- str_subset(dir("../data/clt_raw_data_zas/", pattern = ".json"), pattern = "DELETE", negate = TRUE)
+
+files_zas <- files_zas[!files_zas %in% pilot]
+
+raw_data_zas <- data_frame()
+for (f in files_zas) {
+  jf <- paste("../data/clt_raw_data_zas/",f,sep="")
+  jd <- jsonlite::fromJSON(paste(readLines(jf), collapse=""))
+  subjID <- jd$meta$subjID
+  order <- jd$meta$order
+  add <- as_data_frame(jd$data) %>% mutate(subjID = subjID,
+                                                 order = order)
+  raw_data_zas <- bind_rows(raw_data_zas, add)
+}
+
+proc_data_zas <- raw_data_zas%>%
+  mutate(subjID2 = subjID)%>%
+  separate(subjID2, into = c("bday","sex","postcode"), sep="_")%>%
+  mutate(test_day = substr(timestamp, 0,10),
+         test_day = as.Date(test_day,"%Y-%m-%d"),
+         bday  = as.Date(bday,"%d-%m-%Y"),
+         age = as.numeric(difftime(test_day, bday, units = "days"))/365.25,
+         sex = tolower(sex))
+
+data_zas <- proc_data_zas%>%
+  left_join(aoa)%>%
+  select(-timestamp)%>%
+  ungroup()%>%
+  mutate(age_group = substr(age,0,1))%>%
+  select(-bday, -test_day)%>%
+  filter(!is.na(age))%>%
+  mutate(correct = ifelse(targetWord == chosenWord, 1,0))%>%
+  mutate(targetWord = ifelse(targetWord == "kangoroo", "kangaroo", targetWord))%>%
+  left_join(aoa)%>%
+  ungroup()
 
 ```
 
@@ -208,10 +212,6 @@ data%>%
   group_by(source)%>%
   summarise(n = length(unique(subjID)))
 
-data%>%
-  filter(source == "mpi")%>%
-  summarise(n = length(unique(subjID)))
-
 filtered_data%>%
   summarise(n = length(unique(subjID)))
   
@@ -245,6 +245,15 @@ data%>%
 #   write_xlsx("../data/clt_reminder2.xlsx")
 ```
 
+# Participants
+
+```{r}
+# filtered_data%>%
+#   filter(trial == 1)%>%
+#   select(test_day,subjID)%>%
+#   distinct(subjID, .keep_all = T)%>%
+#   write_xlsx("../data/participated_06_04_22.xlsx")
+```
 
 
 
@@ -252,10 +261,11 @@ data%>%
 
 ```{r}
 data%>%
-  group_by(subjID)%>%
+  group_by(source,subjID)%>%
   summarise(age = round(mean(age),2))%>%
   ggplot(aes(x = age))+
-  geom_jitter(aes(y = 0),width =0, height = 0.02, pch = 1, alpha =.75)+
+  geom_jitter(aes(y = 0, col = source),width =0, height = 0.02, pch = 1, alpha =.75)+
+  scale_color_colorblind()+
   geom_density()+
   #ylim(-1,1)+
   theme_minimal()
@@ -320,15 +330,16 @@ ggplot(p1_2, aes(x = mean_orderA, y = mean_orderB))+
 
 ```{r}
 p2 <- data%>%
-  group_by(subjID, age)%>%
+  group_by(source,subjID, age)%>%
   tidyboot_mean(col = correct)
 
 ggplot(p2, aes(x = age, y = mean))+
   #stat_cor()+
   geom_hline(yintercept = 0.25, lty = 3, alpha = .75)+
-  geom_pointrange(aes(ymin = ci_lower, ymax = ci_upper), alpha = .25)+
+  geom_pointrange(aes(ymin = ci_lower, ymax = ci_upper, col = source), alpha = .25)+
   #geom_point( alpha = .75)+
   geom_smooth(method = "lm")+
+  scale_color_colorblind()+
   labs(x = "Age", y = "Proportion correct")+
   ylim(0,1)+
   xlim(3,8.2)+

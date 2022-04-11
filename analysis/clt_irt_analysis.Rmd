@@ -11,8 +11,27 @@ library(brms)
 library(readxl)
 library(ggthemes)
 library(geomtextpath)
+library(coda)
 
 ```
+
+```{r}
+estimate_mode <- function(s) {
+  d <- density(s)
+  return(d$x[which.max(d$y)])
+}
+
+hdi_upper<- function(s){
+  m <- HPDinterval(mcmc(s))
+  return(m["var1","upper"])
+}
+
+hdi_lower<- function(s){
+  m <- HPDinterval(mcmc(s))
+  return(m["var1","lower"])
+}
+```
+
 
 ```{r}
 data <- read_csv("../data/clt_clean_data.csv")
@@ -70,6 +89,8 @@ irt1 <- brm(
 irt1 <- add_criterion(irt1, "loo") 
 
 saveRDS(irt1, "../saves/irt1.rds")
+
+irt1 <- readRDS("../saves/irt1.rds")
 ```
 ### Model checks
 
@@ -158,6 +179,7 @@ tic1 <- posterior_samples(irt1)%>%
   group_by(theta) %>% 
   summarise(i = median(sum_i))
 ```
+
 ```{r}
 tic1%>%
   ggplot(aes(x = theta, y = i)) +
@@ -165,69 +187,6 @@ tic1%>%
   labs(title = "TIC for the 1PL",
        x = expression(theta~('ability on the logit scale')),
        y = "Information") +
-  theme_minimal()
-```
-
-### Differential Item Functioning
-
-```{r}
-irt_dif_dat <- data%>%
-  filter(!is.na(sex))%>%
-  select(subjID,sex, targetWord, correct)
-
-
-irt1_f <- brm(
-  data = irt_dif_dat%>%filter(sex == "w"),
-  family = brmsfamily("bernoulli", "logit"),
-  correct ~ 1 + (1 | targetWord) + (1 | subjID),
-  prior = c(prior(normal(0, 1.5), class = Intercept),
-            prior(student_t(10, 0, 1), class = sd)),
-  cores = 4,
-  chains = 4,
-  iter = 8000
-)
-
-irt1_m <- brm(
-  data = irt_dif_dat%>%filter(sex == "m"),
-  family = brmsfamily("bernoulli", "logit"),
-  correct ~ 1 + (1 | targetWord) + (1 | subjID),
-  prior = c(prior(normal(0, 1.5), class = Intercept),
-            prior(student_t(10, 0, 1), class = sd)),
-  cores = 4,
-  chains = 4,
-  iter = 8000
-)
-
-```
-
-```{r}
-icc1_dif <- bind_rows(
-  posterior_samples(irt1_m)%>%mutate(group = "m"),
-  posterior_samples(irt1_f)%>%mutate(group = "f")
-)%>%
-  select(b_Intercept,group, starts_with("r_targetWord"))%>%
-  group_by(group)%>%
-  mutate(iter = 1:n()) %>% 
-  ungroup()%>%
-  pivot_longer(starts_with("r_targetWord"), names_to = "item", values_to = "xi") %>%
-  mutate(item = str_extract(string = item, pattern = "(?<=\\[).*(?=,Intercept\\])"))%>%
-  expand(nesting(iter,group, b_Intercept, item, xi),
-         theta = seq(from = -6, to = 6, length.out = 100)) %>% 
-  mutate(p = inv_logit_scaled(b_Intercept + xi + theta)) %>% 
-  group_by(theta, group,item) %>% 
-  summarise(p = mean(p))
-```
-
-```{r}
-icc1_dif %>% 
-  ggplot(aes(x = theta, y = p,group = group, col = group)) +
-  geom_line(alpha = .75) +
-  facet_wrap(~item)+
-  #guides(col = F)+
-  scale_color_viridis_d(name = "AoA") +
-  labs(title = "Group Split by sex - 1PL",
-       x = expression(theta~('ability on the logit scale')),
-       y = expression(italic(p)(y==1))) +
   theme_minimal()
 ```
 
@@ -255,7 +214,7 @@ irt2 <- brm(
     nl = TRUE
   ),
   prior = prior_2pl,
-  control = list(adapt_delta = 0.9),
+  control = list(adapt_delta = 0.999, stepsize = 0.001, max_treedepth = 20),
   cores = 6,
   chains = 6,
   iter = 6000
@@ -264,6 +223,8 @@ irt2 <- brm(
 irt2 <- add_criterion(irt2, "loo") 
 
 saveRDS(irt2, "../saves/irt2.rds")
+
+irt2 <- readRDS("../saves/irt2.rds")
 ```
 
 ### Model checks
@@ -435,6 +396,7 @@ irt3 <- add_criterion(irt3, "loo")
 
 saveRDS(irt3, "../saves/irt3.rds")
 
+irt3 <- readRDS("../saves/irt3.rds")
 ```
 
 ### Model checks
@@ -590,6 +552,8 @@ irt3_dif_sex <- brm(
 irt3_dif_sex <- add_criterion(irt3_dif_sex, "loo") 
 
 saveRDS(irt3_dif_sex, "../saves/irt3_dif_sex.rds")
+
+irt3_dif_sex <- readRDS("../saves/irt3_dif_sex.rds")
 ```
 
 ```{r}
@@ -599,34 +563,49 @@ loo_compare(irt3, irt3_dif_sex)%>%as_tibble(rownames = "model")
 
 
 ```{r}
-coef_irt3_dif_sex <- coef(irt3_dif_sex)
+# eta_sex <- as_draws_df(irt3_dif_sex)%>%
+#   select(b_eta_Intercept, starts_with("r_targetWord__eta"))%>%
+#   mutate(iter = 1:n()) %>% 
+#   pivot_longer(starts_with("r_targetWord")) %>%
+#   mutate(name = str_remove(name, pattern = "r_targetWord__eta"),
+#          name = str_remove_all(name, pattern = "\\[|\\]"))%>%
+#   separate(name, into = c("item", "sex"), sep = "\\,")%>%
+#   mutate(sex = str_remove(sex, pattern = "sex"),
+#          val = b_eta_Intercept + value)%>%
+#   group_by(item, sex)%>%
+#   summarise(mode = estimate_mode(val),
+#             uci = hdi_upper(val),
+#             lci = hdi_lower(val))%>%
+#   mutate(nlpar = "Easiness")
+# 
+# 
+# alpha_sex <- as_draws_df(irt3_dif_sex)%>%
+#   select(b_logalpha_Intercept, starts_with("r_targetWord__logalpha"))%>%
+#   mutate(iter = 1:n()) %>% 
+#   pivot_longer(starts_with("r_targetWord")) %>%
+#   mutate(name = str_remove(name, pattern = "r_targetWord__logalpha"),
+#          name = str_remove_all(name, pattern = "\\[|\\]"))%>%
+#   separate(name, into = c("item", "sex"), sep = "\\,")%>%
+#   mutate(sex = str_remove(sex, pattern = "sex"),
+#          val = exp(b_logalpha_Intercept + value))%>%
+#   group_by(item, sex)%>%
+#   summarise(mode = estimate_mode(val),
+#             uci = hdi_upper(val),
+#             lci = hdi_lower(val))%>%
+#   mutate(nlpar = "Discrimination")
+# 
+# params_sex <- bind_rows(eta_sex, alpha_sex) %>%
+#   left_join(aoa%>%rename(item = targetWord))
+# 
+# saveRDS(params_sex, "../saves/model_params_irt3_dif_sex.rds")
 
-eta_sex <- bind_rows(
-  coef_irt3_dif_sex$targetWord[, , "eta_sexf"] %>%
-	as_tibble(rownames = "item")%>%mutate(sex = "female"),
-  coef_irt3_dif_sex$targetWord[, , "eta_sexm"] %>%
-	as_tibble(rownames = "item")%>%mutate(sex = "male")
-  )%>%mutate(nlpar = "Easiness")
+params_sex <- readRDS("../saves/model_params_irt3_dif_sex.rds")
 
-alpha_sex <- 
-  bind_rows(
-    coef_irt3_dif_sex$targetWord[, , "logalpha_sexf"] %>%
-	exp() %>%
-	as_tibble(rownames = "item")%>%mutate(sex = "female"),
-	    coef_irt3_dif_sex$targetWord[, , "logalpha_sexm"] %>%
-	exp() %>%
-	as_tibble(rownames = "item")%>%mutate(sex = "male")
-  )%>%mutate(nlpar = "Discrimination")
-
-params_sex <- bind_rows(eta_sex, alpha_sex) %>%
-	select(-Est.Error) %>%
-  left_join(aoa%>%rename(item = targetWord))
-
-ggplot(params_sex,aes(reorder(item, -aoa_german_comb), Estimate, ymin = Q2.5, ymax = Q97.5)) +
+ggplot(params_sex,aes(reorder(item, -aoa_german_comb), mode, ymin = lci, ymax = uci)) +
 	facet_wrap("nlpar", scales = "free_x") +
 	geom_pointrange(aes(col = sex), position = position_dodge(width = .5)) +
 	coord_flip() +
-  scale_color_colorblind()+
+  scale_color_colorblind(labels = c("male","female"))+
 	labs(x = "Item")+
   theme_minimal()
 ```
@@ -652,6 +631,8 @@ irt3_dif_order <- brm(
 irt3_dif_order <- add_criterion(irt3_dif_order, "loo") 
 
 saveRDS(irt3_dif_order, "../saves/irt3_dif_order.rds")
+
+irt3_dif_order <- readRDS("../saves/irt3_dif_order.rds")
 ```
 
 ```{r}
@@ -659,30 +640,46 @@ loo_compare(irt3, irt3_dif_order)%>%as_tibble(rownames = "model")
 ```
 
 ```{r}
-coef_irt3_dif_order <- coef(irt3_dif_order)
 
-eta_order <- bind_rows(
-  coef_irt3_dif_order$targetWord[, , "eta_orderorderA"] %>%
-	as_tibble(rownames = "item")%>%mutate(order = "A"),
-  coef_irt3_dif_order$targetWord[, , "eta_orderorderB"] %>%
-	as_tibble(rownames = "item")%>%mutate(order = "B")
-  )%>%mutate(nlpar = "Easiness")
+eta_order <- as_draws_df(irt3_dif_order)%>%
+  select(b_eta_Intercept, starts_with("r_targetWord__eta"))%>%
+  mutate(iter = 1:n()) %>%
+  pivot_longer(starts_with("r_targetWord")) %>%
+  mutate(name = str_remove(name, pattern = "r_targetWord__eta"),
+         name = str_remove_all(name, pattern = "\\[|\\]"))%>%
+  separate(name, into = c("item", "order"), sep = "\\,")%>%
+  mutate(order = str_remove(order, pattern = "orderorder"),
+         val = b_eta_Intercept + value)%>%
+  group_by(item, order)%>%
+  summarise(mode = estimate_mode(val),
+            uci = hdi_upper(val),
+            lci = hdi_lower(val))%>%
+  mutate(nlpar = "Easiness")
 
-alpha_order <- 
-  bind_rows(
-    coef_irt3_dif_order$targetWord[, , "logalpha_orderorderA"] %>%
-      exp() %>%
-      as_tibble(rownames = "item")%>%mutate(order = "A"),
-    coef_irt3_dif_order$targetWord[, , "logalpha_orderorderB"] %>%
-      exp() %>%
-      as_tibble(rownames = "item")%>%mutate(order = "B")
-  )%>%mutate(nlpar = "Discrimination")
+
+alpha_order <- as_draws_df(irt3_dif_order)%>%
+  select(b_logalpha_Intercept, starts_with("r_targetWord__logalpha"))%>%
+  mutate(iter = 1:n()) %>%
+  pivot_longer(starts_with("r_targetWord")) %>%
+  mutate(name = str_remove(name, pattern = "r_targetWord__logalpha"),
+         name = str_remove_all(name, pattern = "\\[|\\]"))%>%
+  separate(name, into = c("item", "order"), sep = "\\,")%>%
+  mutate(order = str_remove(order, pattern = "orderorder"),
+         val = exp(b_logalpha_Intercept + value))%>%
+  group_by(item, order)%>%
+  summarise(mode = estimate_mode(val),
+            uci = hdi_upper(val),
+            lci = hdi_lower(val))%>%
+  mutate(nlpar = "Discrimination")
 
 params_order <- bind_rows(eta_order, alpha_order) %>%
-	select(-Est.Error) %>%
   left_join(aoa%>%rename(item = targetWord))
 
-ggplot(params_order,aes(reorder(item, -aoa_german_comb), Estimate, ymin = Q2.5, ymax = Q97.5)) +
+saveRDS(params_order, "../saves/model_params_irt3_dif_order.rds")
+
+params_order <- readRDS("../saves/model_params_irt3_dif_order.rds")
+
+ggplot(params_order,aes(reorder(item, -aoa_german_comb), mode, ymin = lci, ymax = uci)) +
 	facet_wrap("nlpar", scales = "free_x") +
 	geom_pointrange(aes(col = order), position = position_dodge(width = .5)) +
 	coord_flip() +
@@ -695,7 +692,7 @@ ggplot(params_order,aes(reorder(item, -aoa_german_comb), Estimate, ymin = Q2.5, 
 # Frequentist IRT
 
 ```{r}
-remove <- c("telephone", "strawberry" ,"plane" ,"snake" ,"fish")
+remove <- c("telephone", "strawberry" ,"plane" ,"snake" ,"fish", "belt")
 
 firt_dat <- irt_dat%>%
   select(-sex, -order)%>%
@@ -713,10 +710,12 @@ firt_dat <- irt_dat%>%
 
 library(mirt)
 
-firt_1F <- mirt(firt_dat, 1, itemtype = "2PL",  guess = .25,technical = list(NCYCLES = 1000))
-firt_2F <- mirt(firt_dat, 2, itemtype = "2PL",  guess = .25,technical = list(NCYCLES = 1000))
+firt_1F <- mirt(firt_dat, 1, itemtype = "2PL",  guess = .25,technical = list(NCYCLES = 2000))
+firt_2F <- mirt(firt_dat, 2, itemtype = "2PL",  guess = .25,technical = list(NCYCLES = 2000))
+firt_3F <- mirt(firt_dat, 3, itemtype = "2PL",  guess = .25,technical = list(NCYCLES = 2000))
 
 anova(firt_1F, firt_2F)
+anova(firt_1F, firt_3F)
 
 library(psych)
 
@@ -749,7 +748,7 @@ coefs2PL <- coef(firt2,
 
 ```{r}
 traceline <- NULL
-for(i in 1:43){
+for(i in 1:46){
 extr.2 <- extract.item(firt2, i)
 Theta <- matrix(seq(-6,6, by = .1))
 traceline[[i]] <- probtrace(extr.2, Theta)
@@ -791,7 +790,7 @@ ggplot(format, aes(Theta, P.1, col = aoa_german_comb, group = item)) +
   #ggtitle('Probability Tracelines') + 
   xlab(expression(theta)) + 
   ylab(expression(P(theta))) + 
-  #facet_wrap(~targetWord)+
+  facet_wrap(~targetWord)+
   ylim(0,1)+
   scale_color_viridis_c(name = "AoA") +
   geom_hline(yintercept = 0.25, lty = 3, alpha = .75) +
@@ -860,12 +859,12 @@ select <-params %>%
   pull("item")
 
 full <- data%>%
-  group_by(subjID)%>%
+  group_by(age_group,subjID)%>%
   summarise(mean_full = mean(correct))
 
 sub <- data%>%
   filter(targetWord %in% select)%>%
-  group_by(subjID)%>%
+  group_by(age_group,subjID)%>%
   summarise(mean_sub = mean(correct))
 
 comp <- full%>%left_join(sub)
@@ -874,9 +873,10 @@ ggplot(comp, aes(x = mean_full, y = mean_sub))+
   geom_abline(intercept = 0, slope = 1, lty = 2, alpha = .75)+
   geom_jitter(pch = 1, alpha = .75, height = 0.01, width = 0.01)+
   stat_cor()+
+  facet_wrap(~age_group)+
   ylim(0,1.02)+
   xlim(0,1.02)+
-  theme_minimal()
+  theme_few()
 
 ```
 
@@ -892,7 +892,7 @@ full <- data%>%
   group_by(subjID)%>%
   summarise(mean_full = mean(correct))
 
-for (i in 1:1000) {
+for (i in 1:200) {
 
   items <-params %>% pull("item")
 
@@ -920,6 +920,31 @@ dat%>%
   summarise(mean_cor = mean(cor))%>%
   arrange(-mean_cor)
   
+
+full <- data%>%
+  group_by(age_group,subjID)%>%
+  summarise(mean_full = mean(correct))
+
+select2 <- dat%>%group_by(items)%>%
+  summarise(mean_cor = mean(cor))%>%
+  arrange(-mean_cor)%>%slice(1:15)%>%pull(items)
+
+sub2 <- data%>%
+  filter(targetWord %in% select2)%>%
+  group_by(age_group,subjID)%>%
+  summarise(mean_sub = mean(correct))
+
+comp2<- full%>%left_join(sub2)
+
+ggplot(comp2, aes(x = mean_full, y = mean_sub))+
+  geom_abline(intercept = 0, slope = 1, lty = 2, alpha = .75)+
+  geom_jitter(pch = 1, alpha = .75, height = 0.01, width = 0.01)+
+  stat_cor()+
+  facet_wrap(~age_group)+
+  ylim(0,1.02)+
+  xlim(0,1.02)+
+  theme_few()
+
 ```
 
 

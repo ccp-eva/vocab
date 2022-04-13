@@ -93,7 +93,10 @@ dem <- bind_rows(
   read_xlsx("../../../../Cloud/Shared/CLT_Kinderlisten_fuer_Emailversandt_14032022.xlsx", sheet = 5),
   read_xlsx("../../../../Cloud/Shared/CLT_Kinderlisten_fuer_Emailversandt_14032022.xlsx", sheet = 7),
   read_xlsx("../../../../Cloud/Shared/CLT_Kinderlisten_fuer_Emailversandt_14032022.xlsx", sheet = 10),
-  read_xlsx("../../../../Cloud/Shared/CLT_Kinderlisten_fuer_Emailversandt_14032022.xlsx", sheet = 12)
+  read_xlsx("../../../../Cloud/Shared/CLT_Kinderlisten_fuer_Emailversandt_14032022.xlsx", sheet = 11),
+  read_xlsx("../../../../Cloud/Shared/CLT_Kinderlisten_fuer_Emailversandt_14032022.xlsx", sheet = 12),
+  read_xlsx("../../../../Cloud/Shared/CLT_Kinderlisten_fuer_Emailversandt_14032022.xlsx", sheet = 13),
+  read_xlsx("../../../../Cloud/Shared/CLT_Kinderlisten_fuer_Emailversandt_14032022.xlsx", sheet = 14)
   )%>%
   select(code,g,`geb.tag`)%>%
   rename(subjID = "code", birth_day = "geb.tag", sex = "g")%>%
@@ -106,10 +109,10 @@ dem <- bind_rows(
 ```
 
 ```{r}
-dem%>%
-  group_by(subjID)%>%
-  summarise(n=n())%>%
-  filter(n >1)
+# dem%>%
+#   group_by(subjID)%>%
+#   summarise(n=n())%>%
+#   filter(n >1)
   
 ```
 
@@ -184,7 +187,7 @@ data_zas <- proc_data_zas%>%
 ```{r}
 data <- bind_rows(
   data_mpi%>%mutate(source = "mpi", postcode = "04103"),
-  #data_zas%>%mutate(source = "zas_kischawi")
+  data_zas%>%mutate(source = "zas_kischawi")
 )
 ```
 
@@ -316,7 +319,7 @@ p1_2 <- p1_1 %>%
 ggplot(p1_2, aes(x = mean_orderA, y = mean_orderB))+
   stat_cor(aes(label = paste(..r.label..)),r.accuracy = 0.01, cor.coef.name = "r")+
   geom_abline(intercept = 0, slope = 1, lty = 3, alpha = .75)+
-  geom_textpath(aes(label = german), hjust = -.2) +
+  #geom_textpath(aes(label = german), hjust = -.2) +
   #geom_hline(yintercept = 0.25, alpha = .5)+
   #geom_vline(xintercept = 0.25, alpha = .5)+
   geom_errorbar(aes(xmin = ci_lower_orderA, xmax = ci_upper_orderA), alpha = .5)+

@@ -1,0 +1,116 @@
+---
+title: "CLT item selection"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+library(tidyverse)
+library(ggpubr)
+library(ggthemes)
+```
+
+```{r}
+data <- read_csv("../data/clt_clean_data.csv")
+
+model_params <- read_csv("../data/model_parameters_3PL.csv")
+```
+
+# Correlation subtest and full test
+
+```{r}
+select <-model_params %>%
+  pivot_wider(names_from = nlpar, values_from = Estimate)%>%
+  arrange(
+    Easiness, 
+    #-Discrimination
+    )%>%
+  slice(1:15)%>%
+  pull("item")
+
+full <- data%>%
+  group_by(age_group,subjID)%>%
+  summarise(mean_full = mean(correct))
+
+sub <- data%>%
+  filter(targetWord %in% select)%>%
+  group_by(age_group,subjID)%>%
+  summarise(mean_sub = mean(correct))
+
+comp <- full%>%left_join(sub)
+
+ggplot(comp, aes(x = mean_full, y = mean_sub))+
+  geom_abline(intercept = 0, slope = 1, lty = 2, alpha = .75)+
+  geom_jitter(pch = 1, alpha = .75, height = 0.01, width = 0.01)+
+  stat_cor()+
+  facet_wrap(~age_group)+
+  ylim(0,1.02)+
+  xlim(0,1.02)+
+  theme_few()
+
+```
+
+```{r}
+dat <- tibble(
+  iter = c(),
+  items = c(),
+  cor = c(),
+)
+
+full <- data%>%
+  group_by(subjID)%>%
+  summarise(mean_full = mean(correct))
+
+for (i in 1:200) {
+
+  items <-params %>% pull("item")
+
+  sel_items <- sample(items, 15)
+
+  sub <- data%>%
+  filter(targetWord %in% sel_items)%>%
+  group_by(subjID)%>%
+  summarise(mean_sub = mean(correct))
+
+  cor <- cor(full$mean_full,sub$mean_sub)
+
+  df <- tibble(
+    iter = i,
+    items = sel_items,
+    cor = cor
+  )
+  
+  dat <- bind_rows(dat,df)
+
+}
+
+dat%>%
+  group_by(items)%>%
+  summarise(mean_cor = mean(cor))%>%
+  arrange(-mean_cor)
+  
+
+full <- data%>%
+  group_by(age_group,subjID)%>%
+  summarise(mean_full = mean(correct))
+
+select2 <- dat%>%group_by(items)%>%
+  summarise(mean_cor = mean(cor))%>%
+  arrange(-mean_cor)%>%slice(1:15)%>%pull(items)
+
+sub2 <- data%>%
+  filter(targetWord %in% select2)%>%
+  group_by(age_group,subjID)%>%
+  summarise(mean_sub = mean(correct))
+
+comp2<- full%>%left_join(sub2)
+
+ggplot(comp2, aes(x = mean_full, y = mean_sub))+
+  geom_abline(intercept = 0, slope = 1, lty = 2, alpha = .75)+
+  geom_jitter(pch = 1, alpha = .75, height = 0.01, width = 0.01)+
+  stat_cor()+
+  facet_wrap(~age_group)+
+  ylim(0,1.02)+
+  xlim(0,1.02)+
+  theme_few()
+
+```

@@ -311,8 +311,9 @@ iic2 <- posterior_samples(irt2)%>%
   expand(nesting(iter, b_eta_Intercept, b_logalpha_Intercept, item, xi, logalpha),
          theta = seq(from = -6, to = 6, length.out = 100)) %>% 
   # note the difference in the equation
-  mutate(p = inv_logit_scaled(exp(b_logalpha_Intercept + logalpha) * (b_eta_Intercept + theta + xi)))%>%
-  mutate(i = p * (1 - p)) %>% 
+ # mutate(p = inv_logit_scaled(exp(b_logalpha_Intercept + logalpha) * (b_eta_Intercept + theta + xi)))%>%
+  #mutate(i = p * (1 - p)) %>% 
+  mutate(i = (exp(b_logalpha_Intercept + logalpha))^2 *inv_logit_scaled(b_eta_Intercept + theta + xi)*(1-inv_logit_scaled(b_eta_Intercept + theta + xi))) %>% 
   group_by(theta, item) %>% 
   summarise(i = median(i))%>%
   left_join(aoa%>%rename(item = targetWord))
@@ -426,6 +427,8 @@ params <- bind_rows(eta, alpha, .id = "nlpar") %>%
 	mutate(nlpar = factor(nlpar, labels = c("Easiness", "Discrimination")))%>%
   left_join(aoa%>%rename(item = targetWord))
 
+write_csv(params,"../data/model_parameters_3PL.csv")
+
 ggplot(params,aes(reorder(item, -aoa_german_comb), Estimate, ymin = Q2.5, ymax = Q97.5)) +
 	facet_wrap("nlpar", scales = "free_x") +
 	geom_pointrange() +
@@ -505,8 +508,11 @@ iic3 <- posterior_samples(irt3)%>%
   expand(nesting(iter, b_eta_Intercept, b_logalpha_Intercept, item, xi, logalpha),
          theta = seq(from = -6, to = 6, length.out = 100)) %>% 
   # note the difference in the equation
-  mutate(p = inv_logit_scaled(exp(b_logalpha_Intercept + logalpha) * (b_eta_Intercept + theta + xi)))%>%
-  mutate(i = p * (1 - p)) %>% 
+  #mutate(p = 0.25 + 0.75*inv_logit_scaled(exp(b_logalpha_Intercept + logalpha) * (b_eta_Intercept + theta + xi)))%>%
+  #mutate(i = p * (1 - p)) %>% 
+  mutate(i = (exp(b_logalpha_Intercept + logalpha))^2 *
+           ((1-inv_logit_scaled(b_eta_Intercept + theta + xi))/(inv_logit_scaled(b_eta_Intercept + theta + xi)))*
+           ((inv_logit_scaled(b_eta_Intercept + theta + xi)-0.25)/(1-0.25))^2)%>%
   group_by(theta, item) %>% 
   summarise(i = median(i))%>%
   left_join(aoa%>%rename(item = targetWord))

@@ -745,7 +745,7 @@ ggplot(params_order,aes(reorder(item, -aoa_german_comb), mode, ymin = lci, ymax 
 # Frequentist IRT
 
 ```{r}
-remove <- c("telephone", "strawberry" ,"plane" ,"snake" ,"fish", "belt")
+remove <- c("telephone", "strawberry" ,"plane" ,"snake" ,"fish")
 
 firt_dat <- irt_dat%>%
   select(-sex, -order)%>%
@@ -899,107 +899,6 @@ params%>%left_join(coefs2PL)%>%
   scale_color_viridis_c()+
   theme_bw()
 ```
-# Correlation subtest and full test
-
-```{r}
-select <-params %>%
-  pivot_wider(names_from = nlpar, values_from = Estimate)%>%
-  arrange(
-    Easiness, 
-    #-Discrimination
-    )%>%
-  slice(1:15)%>%
-  pull("item")
-
-full <- data%>%
-  group_by(age_group,subjID)%>%
-  summarise(mean_full = mean(correct))
-
-sub <- data%>%
-  filter(targetWord %in% select)%>%
-  group_by(age_group,subjID)%>%
-  summarise(mean_sub = mean(correct))
-
-comp <- full%>%left_join(sub)
-
-ggplot(comp, aes(x = mean_full, y = mean_sub))+
-  geom_abline(intercept = 0, slope = 1, lty = 2, alpha = .75)+
-  geom_jitter(pch = 1, alpha = .75, height = 0.01, width = 0.01)+
-  stat_cor()+
-  facet_wrap(~age_group)+
-  ylim(0,1.02)+
-  xlim(0,1.02)+
-  theme_few()
-
-```
-
-```{r}
-
-dat <- tibble(
-  iter = c(),
-  items = c(),
-  cor = c(),
-)
-
-full <- data%>%
-  group_by(subjID)%>%
-  summarise(mean_full = mean(correct))
-
-for (i in 1:200) {
-
-  items <-params %>% pull("item")
-
-  sel_items <- sample(items, 15)
-
-  sub <- data%>%
-  filter(targetWord %in% sel_items)%>%
-  group_by(subjID)%>%
-  summarise(mean_sub = mean(correct))
-
-  cor <- cor(full$mean_full,sub$mean_sub)
-
-  df <- tibble(
-    iter = i,
-    items = sel_items,
-    cor = cor
-  )
-  
-  dat <- bind_rows(dat,df)
-
-}
-
-dat%>%
-  group_by(items)%>%
-  summarise(mean_cor = mean(cor))%>%
-  arrange(-mean_cor)
-  
-
-full <- data%>%
-  group_by(age_group,subjID)%>%
-  summarise(mean_full = mean(correct))
-
-select2 <- dat%>%group_by(items)%>%
-  summarise(mean_cor = mean(cor))%>%
-  arrange(-mean_cor)%>%slice(1:15)%>%pull(items)
-
-sub2 <- data%>%
-  filter(targetWord %in% select2)%>%
-  group_by(age_group,subjID)%>%
-  summarise(mean_sub = mean(correct))
-
-comp2<- full%>%left_join(sub2)
-
-ggplot(comp2, aes(x = mean_full, y = mean_sub))+
-  geom_abline(intercept = 0, slope = 1, lty = 2, alpha = .75)+
-  geom_jitter(pch = 1, alpha = .75, height = 0.01, width = 0.01)+
-  stat_cor()+
-  facet_wrap(~age_group)+
-  ylim(0,1.02)+
-  xlim(0,1.02)+
-  theme_few()
-
-```
-
 
 
 # Sources

@@ -1,0 +1,154 @@
+---
+title: "CLT Gafo merge"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+library(tidyverse)
+library(ggpubr)
+library(tidyboot)
+library(brms)
+library(tidybayes)
+```
+
+```{r}
+clt_data <- read_csv("../data/clt_clean_data.csv")
+
+gafo_data <- readRDS("../data/gafo-testtrials.rds")%>%
+  ungroup()%>%
+  mutate(testday = as.Date(substr(timestamp,0,10), "%Y-%m-%d"), 
+         dob = as.character(dob),
+         dob = ifelse(dob == "0016-05-01","2016-05-01",dob),
+         dob = ifelse(dob == "0018-08-04","2018-08-04",dob),
+         dob = as.Date(dob,"%Y-%m-%d"))
+```
+
+```{r}
+merge <- clt_data%>%
+  group_by(age_group,age,subjID)%>%
+  summarise(mean_clt = mean(correct, na.rm = T), 
+            cor_clt = sum(correct, na.rm = T),
+            n_clt = length(correct))%>%
+  inner_join(
+    gafo_data%>%
+      mutate(gafo_age = as.numeric(difftime(testday, dob, "days"))/365.25)%>%
+      group_by(gafo_age,subjID)%>%
+      summarise(mean_gaze = mean(correctBox, na.rm = T))
+  )%>%
+  mutate(time_diff = age - gafo_age)%>%
+  distinct(subjID, .keep_all = T)
+
+```
+
+```{r}
+merge%>%
+  ungroup()%>%
+  #group_by(age_group)%>%
+  summarise(n = length(unique(subjID)))
+
+merge%>%
+  ungroup()%>%
+  group_by(age_group)%>%
+  summarise(n = length(unique(subjID)))
+```
+
+
+```{r}
+ggarrange(
+  ggplot(merge, aes(x = time_diff))+
+  geom_histogram(alpha = .75, col = "black", fill = "white", bins = 100)+
+  labs(x = "Time (in years) between tests", y = "Count")+
+  scale_color_viridis_c(name = "Age")+
+  #ylim(0.7,1)+
+  #coord_fixed(3)+
+  theme_minimal(),
+  
+  ggplot(merge, aes(x = age, y = mean_clt))+
+  geom_jitter( width = 0.005, height = 0.005, alpha = .75)+
+  stat_cor(cor.coef.name = "r")+
+  geom_smooth(method = "lm", col = "firebrick")+
+  labs(x = "Age (in years)", y = "Vocabulary score")+
+  #scale_color_viridis_c(name = "Age")+
+  #ylim(0.7,1)+
+  #coord_fixed(3)+
+  theme_minimal(),
+  
+  ggplot(merge, aes(x = mean_gaze, y = mean_clt, col = age))+
+  geom_jitter( width = 0.005, height = 0.005, alpha = .75)+
+  stat_cor(cor.coef.name = "r")+
+  geom_smooth(method = "lm", col = "firebrick")+
+  labs(x = "Gaze understanding score", y = "Vocabulary score")+
+  scale_color_viridis_c(name = "Age")+
+  #ylim(0.7,1)+
+  #coord_fixed(3)+
+  theme_minimal(),
+  widths = c(1,1),
+  common.legend = T,
+  nrow = 1
+)
+```
+
+
+```{r}
+merge_model <- merge%>%
+  ungroup()%>%
+  mutate(age = scale(age),
+         mean_gaze = scale(mean_gaze))
+```
+
+
+```{r}
+mfull <- brm( cor_clt|trials(n_clt)~age+mean_gaze,
+     data = merge_model,
+     family = binomial
+     )%>%
+  add_criterion(c("loo","waic"))
+
+mage <- brm( cor_clt|trials(n_clt)~age,
+     data = merge_model,
+     family = binomial
+     )%>%
+  add_criterion(c("loo","waic"))
+
+mgaze <- brm( cor_clt|trials(n_clt)~mean_gaze,
+     data = merge_model,
+     family = binomial
+     )%>%
+  add_criterion(c("loo","waic"))
+
+mnull <- brm( cor_clt|trials(n_clt)~1,
+     data = merge_model,
+     family = binomial
+     )%>%
+  add_criterion(c("loo","waic"))
+```
+
+```{r}
+loo_compare(mfull, mage, mgaze,mnull)%>%as_tibble(rownames = "model")
+```
+
+```{r}
+plot(mfull)
+
+pp_check(mfull)
+
+mfull
+```
+
+```{r}
+p1 <- mfull %>%
+  gather_draws(b_age, b_mean_gaze)%>%
+  mutate(Predictor = recode(.variable,
+                        b_age = "Age (scaled)",
+                        b_mean_gaze = "Gaze understanding score (scaled)"))
+
+ggplot(p1,aes(y = Predictor, x = .value, fill = stat(x) > 0)) +
+  stat_halfeye(alpha = .7, .width = c(.95, .80)) +
+    labs(x = "Model Estimate", y ="")+
+  guides(fill = "none")+
+  geom_vline(xintercept = 0, linetype = "dashed") +
+  scale_fill_manual(values = c("grey","#85AD00"))+
+  xlim(-0.2, 0.5)+
+  theme_minimal()
+```
+

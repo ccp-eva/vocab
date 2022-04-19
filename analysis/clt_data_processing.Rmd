@@ -93,7 +93,10 @@ dem <- bind_rows(
   read_xlsx("../../../../Cloud/Shared/CLT_Kinderlisten_fuer_Emailversandt_14032022.xlsx", sheet = 5),
   read_xlsx("../../../../Cloud/Shared/CLT_Kinderlisten_fuer_Emailversandt_14032022.xlsx", sheet = 7),
   read_xlsx("../../../../Cloud/Shared/CLT_Kinderlisten_fuer_Emailversandt_14032022.xlsx", sheet = 10),
-  read_xlsx("../../../../Cloud/Shared/CLT_Kinderlisten_fuer_Emailversandt_14032022.xlsx", sheet = 12)
+  read_xlsx("../../../../Cloud/Shared/CLT_Kinderlisten_fuer_Emailversandt_14032022.xlsx", sheet = 11),
+  read_xlsx("../../../../Cloud/Shared/CLT_Kinderlisten_fuer_Emailversandt_14032022.xlsx", sheet = 12),
+  read_xlsx("../../../../Cloud/Shared/CLT_Kinderlisten_fuer_Emailversandt_14032022.xlsx", sheet = 13),
+  read_xlsx("../../../../Cloud/Shared/CLT_Kinderlisten_fuer_Emailversandt_14032022.xlsx", sheet = 14)
   )%>%
   select(code,g,`geb.tag`)%>%
   rename(subjID = "code", birth_day = "geb.tag", sex = "g")%>%
@@ -106,10 +109,10 @@ dem <- bind_rows(
 ```
 
 ```{r}
-dem%>%
-  group_by(subjID)%>%
-  summarise(n=n())%>%
-  filter(n >1)
+# dem%>%
+#   group_by(subjID)%>%
+#   summarise(n=n())%>%
+#   filter(n >1)
   
 ```
 
@@ -175,7 +178,8 @@ data_zas <- proc_data_zas%>%
   mutate(correct = ifelse(targetWord == chosenWord, 1,0))%>%
   mutate(targetWord = ifelse(targetWord == "kangoroo", "kangaroo", targetWord))%>%
   left_join(aoa)%>%
-  ungroup()
+  ungroup()%>%
+  filter(age_group < 9)
 
 ```
 
@@ -184,7 +188,7 @@ data_zas <- proc_data_zas%>%
 ```{r}
 data <- bind_rows(
   data_mpi%>%mutate(source = "mpi", postcode = "04103"),
-  #data_zas%>%mutate(source = "zas_kischawi")
+  data_zas%>%mutate(source = "zas_kischawi")
 )
 ```
 
@@ -227,6 +231,7 @@ data%>%
 
 ```{r}
 # reminder1 <- read_xlsx("../../../../Cloud/Shared/CLT_Kinderlisten_fuer_Emailversandt_14032022.xlsx", sheet = 15)
+# reminder2 <- read_xlsx("../../../../Cloud/Shared/CLT_Kinderlisten_fuer_Emailversandt_14032022.xlsx", sheet = 16)
 # 
 # bind_rows(
 #   read_xlsx("../../../../Cloud/Shared/CLT_Kinderlisten_fuer_Emailversandt_14032022.xlsx", sheet = 1),
@@ -236,13 +241,17 @@ data%>%
 #   read_xlsx("../../../../Cloud/Shared/CLT_Kinderlisten_fuer_Emailversandt_14032022.xlsx", sheet = 5),
 #   read_xlsx("../../../../Cloud/Shared/CLT_Kinderlisten_fuer_Emailversandt_14032022.xlsx", sheet = 7),
 #   read_xlsx("../../../../Cloud/Shared/CLT_Kinderlisten_fuer_Emailversandt_14032022.xlsx", sheet = 10),
-#   read_xlsx("../../../../Cloud/Shared/CLT_Kinderlisten_fuer_Emailversandt_14032022.xlsx", sheet = 12)
+#   read_xlsx("../../../../Cloud/Shared/CLT_Kinderlisten_fuer_Emailversandt_14032022.xlsx", sheet = 11),
+#   read_xlsx("../../../../Cloud/Shared/CLT_Kinderlisten_fuer_Emailversandt_14032022.xlsx", sheet = 12),
+#   read_xlsx("../../../../Cloud/Shared/CLT_Kinderlisten_fuer_Emailversandt_14032022.xlsx", sheet = 13),
+#   read_xlsx("../../../../Cloud/Shared/CLT_Kinderlisten_fuer_Emailversandt_14032022.xlsx", sheet = 14)
 #   )%>%
 #   filter(!code %in% data$subjID)%>%
 #   filter(!code %in% reminder1$code)%>%
+#   filter(!code %in% reminder2$code)%>%
 #   filter(code != "RY5sK3xF")%>%
 #   filter(code != "s6fdepZJ")%>%
-#   write_xlsx("../data/clt_reminder2.xlsx")
+#   write_xlsx("../data/clt_reminder3.xlsx")
 ```
 
 # Participants

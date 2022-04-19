@@ -12,6 +12,7 @@ library(readxl)
 library(ggthemes)
 library(geomtextpath)
 library(coda)
+library(ggridges)
 
 ```
 
@@ -436,6 +437,52 @@ ggplot(params,aes(reorder(item, -aoa_german_comb), Estimate, ymin = Q2.5, ymax =
 	labs(x = "Item")+
   theme_minimal()
 ```
+
+```{r}
+eta_joy <- as_draws_df(irt3)%>%
+  select(b_eta_Intercept, starts_with("r_targetWord__eta"))%>%
+  mutate(iter = 1:n()) %>%
+  pivot_longer(starts_with("r_targetWord")) %>%
+  mutate(name = str_remove(name, pattern = "r_targetWord__eta"),
+         name = str_remove(name, pattern = "\\,Intercept"),
+         name = str_remove_all(name, pattern = "\\[|\\]"))%>%
+  mutate(val = b_eta_Intercept + value)%>%
+  select(-b_eta_Intercept, -value)%>%
+  mutate(nlpar = "Easiness")%>%
+  filter(val < 8)
+
+
+alpha_joy <- as_draws_df(irt3)%>%
+  select(b_logalpha_Intercept, starts_with("r_targetWord__logalpha"))%>%
+  mutate(iter = 1:n()) %>%
+  pivot_longer(starts_with("r_targetWord")) %>%
+  mutate(name = str_remove(name, pattern = "r_targetWord__logalpha"),
+         name = str_remove(name, pattern = "\\,Intercept"),
+         name = str_remove_all(name, pattern = "\\[|\\]"))%>%
+  mutate(val = exp(b_logalpha_Intercept + value))%>%
+  select(-b_logalpha_Intercept, -value)%>%
+  mutate(nlpar = "Discrimination")%>%
+  filter(val < 4)
+
+params_joy <- bind_rows(eta_joy, alpha_joy) %>%
+  rename(item = name)%>%
+  left_join(aoa%>%rename(item = targetWord))
+
+#saveRDS(params_joy, "../saves/model_params_irt3_draws.rds")
+
+ggplot(params_joy, aes(y = reorder(item, -aoa_german_comb), x = val, fill = aoa_german_comb))+
+  geom_density_ridges(size = 0.2,scale = 4, alpha = .5)+
+  facet_grid(~nlpar, scales = "free_x")+
+  labs(y = "Item")+
+  scale_fill_viridis_c(name = "AoA")+
+  theme_minimal()
+
+params_joy%>%
+  group_by(nlpar)%>%
+  summarise(min = min(val), 
+            max = max(val))
+```
+
 
 ### ICC
 

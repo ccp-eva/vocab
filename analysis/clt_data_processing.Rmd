@@ -178,7 +178,8 @@ data_zas <- proc_data_zas%>%
   mutate(correct = ifelse(targetWord == chosenWord, 1,0))%>%
   mutate(targetWord = ifelse(targetWord == "kangoroo", "kangaroo", targetWord))%>%
   left_join(aoa)%>%
-  ungroup()
+  ungroup()%>%
+  filter(age_group < 9)
 
 ```
 
@@ -230,6 +231,7 @@ data%>%
 
 ```{r}
 # reminder1 <- read_xlsx("../../../../Cloud/Shared/CLT_Kinderlisten_fuer_Emailversandt_14032022.xlsx", sheet = 15)
+# reminder2 <- read_xlsx("../../../../Cloud/Shared/CLT_Kinderlisten_fuer_Emailversandt_14032022.xlsx", sheet = 16)
 # 
 # bind_rows(
 #   read_xlsx("../../../../Cloud/Shared/CLT_Kinderlisten_fuer_Emailversandt_14032022.xlsx", sheet = 1),
@@ -239,13 +241,17 @@ data%>%
 #   read_xlsx("../../../../Cloud/Shared/CLT_Kinderlisten_fuer_Emailversandt_14032022.xlsx", sheet = 5),
 #   read_xlsx("../../../../Cloud/Shared/CLT_Kinderlisten_fuer_Emailversandt_14032022.xlsx", sheet = 7),
 #   read_xlsx("../../../../Cloud/Shared/CLT_Kinderlisten_fuer_Emailversandt_14032022.xlsx", sheet = 10),
-#   read_xlsx("../../../../Cloud/Shared/CLT_Kinderlisten_fuer_Emailversandt_14032022.xlsx", sheet = 12)
+#   read_xlsx("../../../../Cloud/Shared/CLT_Kinderlisten_fuer_Emailversandt_14032022.xlsx", sheet = 11),
+#   read_xlsx("../../../../Cloud/Shared/CLT_Kinderlisten_fuer_Emailversandt_14032022.xlsx", sheet = 12),
+#   read_xlsx("../../../../Cloud/Shared/CLT_Kinderlisten_fuer_Emailversandt_14032022.xlsx", sheet = 13),
+#   read_xlsx("../../../../Cloud/Shared/CLT_Kinderlisten_fuer_Emailversandt_14032022.xlsx", sheet = 14)
 #   )%>%
 #   filter(!code %in% data$subjID)%>%
 #   filter(!code %in% reminder1$code)%>%
+#   filter(!code %in% reminder2$code)%>%
 #   filter(code != "RY5sK3xF")%>%
 #   filter(code != "s6fdepZJ")%>%
-#   write_xlsx("../data/clt_reminder2.xlsx")
+#   write_xlsx("../data/clt_reminder3.xlsx")
 ```
 
 # Participants
@@ -319,7 +325,7 @@ p1_2 <- p1_1 %>%
 ggplot(p1_2, aes(x = mean_orderA, y = mean_orderB))+
   stat_cor(aes(label = paste(..r.label..)),r.accuracy = 0.01, cor.coef.name = "r")+
   geom_abline(intercept = 0, slope = 1, lty = 3, alpha = .75)+
-  #geom_textpath(aes(label = german), hjust = -.2) +
+  geom_textpath(aes(label = german), hjust = -.2) +
   #geom_hline(yintercept = 0.25, alpha = .5)+
   #geom_vline(xintercept = 0.25, alpha = .5)+
   geom_errorbar(aes(xmin = ci_lower_orderA, xmax = ci_upper_orderA), alpha = .5)+

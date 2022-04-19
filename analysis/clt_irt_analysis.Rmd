@@ -698,7 +698,7 @@ ggplot(params_order,aes(reorder(item, -aoa_german_comb), mode, ymin = lci, ymax 
 # Frequentist IRT
 
 ```{r}
-remove <- c("telephone", "strawberry" ,"plane" ,"snake" ,"fish", "belt")
+remove <- c("telephone", "strawberry" ,"plane" ,"snake" ,"fish")
 
 firt_dat <- irt_dat%>%
   select(-sex, -order)%>%

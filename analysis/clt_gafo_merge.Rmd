@@ -55,13 +55,13 @@ merge%>%
 
 ```{r}
 ggarrange(
-  ggplot(merge, aes(x = time_diff))+
-  geom_histogram(alpha = .75, col = "black", fill = "white", bins = 100)+
-  labs(x = "Time (in years) between tests", y = "Count")+
-  scale_color_viridis_c(name = "Age")+
-  #ylim(0.7,1)+
-  #coord_fixed(3)+
-  theme_minimal(),
+  # ggplot(merge, aes(x = time_diff))+
+  # geom_histogram(alpha = .75, col = "black", fill = "white", bins = 100)+
+  # labs(x = "Time (in years) between tests", y = "Count")+
+  # scale_color_viridis_c(name = "Age")+
+  # #ylim(0.7,1)+
+  # #coord_fixed(3)+
+  # theme_minimal(),
   
   ggplot(merge, aes(x = age, y = mean_clt))+
   geom_jitter( width = 0.005, height = 0.005, alpha = .75)+
@@ -143,7 +143,7 @@ p1 <- mfull %>%
                         b_mean_gaze = "Gaze understanding score (scaled)"))
 
 ggplot(p1,aes(y = Predictor, x = .value, fill = stat(x) > 0)) +
-  stat_halfeye(alpha = .7, .width = c(.95, .80)) +
+ stat_halfeye(alpha = .7, .width = c(.95, .80)) +
     labs(x = "Model Estimate", y ="")+
   guides(fill = "none")+
   geom_vline(xintercept = 0, linetype = "dashed") +

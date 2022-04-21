@@ -368,7 +368,7 @@ tic2%>%
 ### Model
 
 ```{r}
-prior_3pl_fixed <- 
+prior_va_3pl <- 
   prior("normal(0, 2)", class = "b", nlpar = "eta") +
   prior("normal(0, 1)", class = "b", nlpar = "logalpha") +
   prior("normal(0, 1)", class = "sd", group = "subjID", nlpar = "eta") + 
@@ -388,7 +388,7 @@ irt3 <- brm(
     nl = TRUE
   ),
   prior = prior_va_3pl,
-  control = list(adapt_delta = 0.9),
+  control = list(adapt_delta = 0.99, max_treedepth = 12),
   cores = 6,
   chains = 6,
   iter = 6000
@@ -801,7 +801,7 @@ coefs2PL <- coef(firt2,
 
 ```{r}
 traceline <- NULL
-for(i in 1:46){
+for(i in 1:47){
 extr.2 <- extract.item(firt2, i)
 Theta <- matrix(seq(-6,6, by = .1))
 traceline[[i]] <- probtrace(extr.2, Theta)
@@ -884,6 +884,7 @@ pc %>%
 
 ```{r}
 params%>%left_join(coefs2PL)%>%
+  #filter(item != "star")%>%
   mutate(slope = ifelse(nlpar == "Easiness", -1,1))%>%
   ggplot(aes(x = Estimate, y = par))+
   geom_abline(aes(slope = slope, intercept = 0), lty = 3, alpha = .5)+
@@ -893,8 +894,8 @@ params%>%left_join(coefs2PL)%>%
   facet_grid(~nlpar)+
   labs(x = "Bayesian estimate", y = "Frequentist estimate")+
   stat_cor()+
-  ylim(-10,10)+
-  xlim(-10,10)+
+  #ylim(-10,10)+
+  #xlim(-10,10)+
   #coord_fixed(ratio = 1)+
   scale_color_viridis_c()+
   theme_bw()

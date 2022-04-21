@@ -894,8 +894,8 @@ params%>%left_join(coefs2PL)%>%
   facet_grid(~nlpar)+
   labs(x = "Bayesian estimate", y = "Frequentist estimate")+
   stat_cor()+
-  #ylim(-10,10)+
-  #xlim(-10,10)+
+  ylim(-10,10)+
+  xlim(-10,10)+
   #coord_fixed(ratio = 1)+
   scale_color_viridis_c()+
   theme_bw()

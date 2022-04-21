@@ -112,5 +112,63 @@ ggplot(comp2, aes(x = mean_full, y = mean_sub))+
   ylim(0,1.02)+
   xlim(0,1.02)+
   theme_few()
+```
 
+# Optimum subset selection via simulated annealing
+
+```{r}
+
+score_fn <- function(subset) {
+	easinesses <- sort(easiness[subset])
+	nn_dists <- rep(0, sum(subset)-1)
+	for(i in 1:sum(subset)-1) {
+		nn_dists[i] <- easinesses[i+1] - easinesses[i]
+	}
+	spacing <- -1*sd(nn_dists)
+	mean_discrim <- mean(discrimination[subset])
+	return(spacing + mean_discrim / 6)
+}
+
+
+proposal_fn <- function(subset) {
+	swaps <- sample(c(1, 1, 1, 2, 2, 3), 1)
+	for(i in 1:swaps) {
+		active_items <- seq(1:length(subset))[subset == TRUE]
+		inactive_items <- seq(1:length(subset))[subset == FALSE]
+		active_to_swap <- sample(active_items, 1)
+		inactive_to_swap <- sample(inactive_items, 1)
+		subset[active_to_swap] <- FALSE
+		subset[inactive_to_swap] <- TRUE
+	}
+	return(subset)
+}
+
+simulated_annealing <- function(k) {
+	easiness <- filter(model_params, nlpar=="Easiness") %>% pull(Estimate)
+	discrimination <- filter(model_params, nlpar=="Discrimination") %>% pull(Estimate)
+	N <- length(easiness)
+
+	best_subset <- sample(c(rep(TRUE, k), rep(FALSE, N-k)))
+	best_score <- score_fn(best_subset)
+
+	temp <- 100
+	rejected <- 0
+	for(i in 1:1e6) {
+		new_subset <- proposal_fn(best_subset)
+		new_score <- score_fn(new_subset)
+		accept_decrease <- rbernoulli(1, temp / 100)
+		if(new_score > best_score | accept_decrease) {
+			best_subset <- new_subset
+			best_score <- new_score
+			print(best_score)
+		} else {
+			rejected <- rejected + 1
+		}
+		if(rejected == 100000) {
+			break
+		}
+		temp <- temp*0.999
+	}
+	return(best_subset)
+}
 ```

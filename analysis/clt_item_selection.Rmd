@@ -160,7 +160,7 @@ simulated_annealing <- function(k) {
 		if(new_score > best_score | accept_decrease) {
 			best_subset <- new_subset
 			best_score <- new_score
-			print(best_score)
+			#print(best_score)
 		} else {
 			rejected <- rejected + 1
 		}
@@ -169,6 +169,51 @@ simulated_annealing <- function(k) {
 		}
 		temp <- temp*0.999
 	}
+	print(best_score)
 	return(best_subset)
 }
+
+
+sim_a <- simulated_annealing(15)
+
+items <- model_params%>%filter(nlpar=="Easiness")
+sel_items <- items$item[sim_a == TRUE]
+
 ```
+
+## Visualize parameters of selected items
+
+```{r}
+model_params%>%
+  filter(item %in% sel_items)%>%
+  ggplot(aes(reorder(item, -aoa_german_comb), Estimate, ymin = Q2.5, ymax = Q97.5)) +
+	facet_wrap("nlpar", scales = "free_x") +
+	geom_pointrange() +
+	coord_flip() +
+	labs(x = "Item")+
+  theme_minimal()
+```
+## Correaltion with full test
+
+```{r}
+full <- data%>%
+  group_by(age_group,subjID)%>%
+  summarise(mean_full = mean(correct))
+
+sub2 <- data%>%
+  filter(targetWord %in% sel_items)%>%
+  group_by(age_group,subjID)%>%
+  summarise(mean_sub = mean(correct))
+
+comp2<- full%>%left_join(sub2)
+
+ggplot(comp2, aes(x = mean_full, y = mean_sub))+
+  geom_abline(intercept = 0, slope = 1, lty = 2, alpha = .75)+
+  geom_jitter(pch = 1, alpha = .75, height = 0.01, width = 0.01)+
+  stat_cor()+
+  facet_wrap(~age_group)+
+  ylim(0,1.02)+
+  xlim(0,1.02)+
+  theme_few()
+```
+

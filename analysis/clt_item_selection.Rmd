@@ -138,14 +138,24 @@ score_fn <- function(subset) {
 
 
 proposal_fn <- function(subset) {
-	swaps <- sample(c(1, 1, 1, 2, 2, 3), 1)
+	# Randomly sample a number of swaps.
+	# Prefer a small number of swaps for "fine tuning", but allow
+	# occasional large numbers of swaps, including a complete
+	# exchange of the subset
+	subset_size = sum(as.integer(subset))
+	max_swaps = min(subset_size, length(subset) - subset_size)
+	swaps <- rbinom(1, max_swaps-1, 1/(max_swaps-1)) + 1
+
+	# Choose the items to swap
+	active_items <- seq(1:length(subset))[subset == TRUE]
+	inactive_items <- seq(1:length(subset))[subset == FALSE]
+	actives_to_swap <- sample(active_items, swaps)
+	inactives_to_swap <- sample(inactive_items, swaps)
+
+	# Do the swapping
 	for(i in 1:swaps) {
-		active_items <- seq(1:length(subset))[subset == TRUE]
-		inactive_items <- seq(1:length(subset))[subset == FALSE]
-		active_to_swap <- sample(active_items, 1)
-		inactive_to_swap <- sample(inactive_items, 1)
-		subset[active_to_swap] <- FALSE
-		subset[inactive_to_swap] <- TRUE
+		subset[actives_to_swap[i]] <- FALSE
+		subset[inactives_to_swap[i]] <- TRUE
 	}
 	return(subset)
 }

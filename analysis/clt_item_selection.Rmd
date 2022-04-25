@@ -197,8 +197,9 @@ simulated_annealing <- function(k, cooling_ratio=0.999, reset_thresh=1000, break
 			no_new_bests <- no_new_bests + 1
 			if(rejected == break_thresh) {
 				#print(best_score)
-				ret <- tibble(best_subset = list(best_subset), 
+			  ret <- tibble(best_subset = list(best_subset),
 	              best_score = best_score)
+			  
 				return(ret)
 			}
 		}
@@ -212,10 +213,10 @@ simulated_annealing <- function(k, cooling_ratio=0.999, reset_thresh=1000, break
 		temp <- temp*cooling_ratio
 	}
 	#print(best_score)
-	# ret <- tibble(best_subset = list(best_subset), 
-	#               best_score = best_score)
+	ret <- tibble(best_subset = list(best_subset),
+	              best_score = best_score)
 	
-	#return(ret)
+	return(ret)
 }
 ```
 

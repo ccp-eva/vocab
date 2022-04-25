@@ -10,113 +10,108 @@ library(ggthemes)
 ```
 
 ```{r}
-data <- read_csv("../data/clt_clean_data.csv")
+data <- read_csv("../data/clt_clean_data.csv")%>%
+  filter(age_group != 8)
 
-model_params <- read_csv("../data/model_parameters_3PL.csv")
-```
-
-# Correlation subtest and full test
-
-```{r}
-select <-model_params %>%
-  pivot_wider(names_from = nlpar, values_from = Estimate)%>%
-  arrange(
-    Easiness, 
-    #-Discrimination
-    )%>%
-  slice(1:15)%>%
-  pull("item")
-
-full <- data%>%
-  group_by(age_group,subjID)%>%
-  summarise(mean_full = mean(correct))
-
-sub <- data%>%
-  filter(targetWord %in% select)%>%
-  group_by(age_group,subjID)%>%
-  summarise(mean_sub = mean(correct))
-
-comp <- full%>%left_join(sub)
-
-ggplot(comp, aes(x = mean_full, y = mean_sub))+
-  geom_abline(intercept = 0, slope = 1, lty = 2, alpha = .75)+
-  geom_jitter(pch = 1, alpha = .75, height = 0.01, width = 0.01)+
-  stat_cor()+
-  facet_wrap(~age_group)+
-  ylim(0,1.02)+
-  xlim(0,1.02)+
-  theme_few()
-
-```
-
-```{r}
-dat <- tibble(
-  iter = c(),
-  items = c(),
-  cor = c(),
-)
-
-full <- data%>%
-  group_by(subjID)%>%
-  summarise(mean_full = mean(correct))
-
-for (i in 1:200) {
-
-  items <-params %>% pull("item")
-
-  sel_items <- sample(items, 15)
-
-  sub <- data%>%
-  filter(targetWord %in% sel_items)%>%
-  group_by(subjID)%>%
-  summarise(mean_sub = mean(correct))
-
-  cor <- cor(full$mean_full,sub$mean_sub)
-
-  df <- tibble(
-    iter = i,
-    items = sel_items,
-    cor = cor
-  )
-  
-  dat <- bind_rows(dat,df)
-
-}
-
-dat%>%
-  group_by(items)%>%
-  summarise(mean_cor = mean(cor))%>%
-  arrange(-mean_cor)
-  
-
-full <- data%>%
-  group_by(age_group,subjID)%>%
-  summarise(mean_full = mean(correct))
-
-select2 <- dat%>%group_by(items)%>%
-  summarise(mean_cor = mean(cor))%>%
-  arrange(-mean_cor)%>%slice(1:15)%>%pull(items)
-
-sub2 <- data%>%
-  filter(targetWord %in% select2)%>%
-  group_by(age_group,subjID)%>%
-  summarise(mean_sub = mean(correct))
-
-comp2<- full%>%left_join(sub2)
-
-ggplot(comp2, aes(x = mean_full, y = mean_sub))+
-  geom_abline(intercept = 0, slope = 1, lty = 2, alpha = .75)+
-  geom_jitter(pch = 1, alpha = .75, height = 0.01, width = 0.01)+
-  stat_cor()+
-  facet_wrap(~age_group)+
-  ylim(0,1.02)+
-  xlim(0,1.02)+
-  theme_few()
+all_model_params <- read_csv("../data/model_parameters_3PL.csv")
 ```
 
 # Optimum subset selection via simulated annealing
 
 ```{r}
+# exclude items based on differential item functioning
+
+exclude <- c("choir", "flounder", "badger")
+
+model_params <- all_model_params%>%
+  filter(!item %in% exclude)
+```
+
+```{r}
+easb <- tibble()
+
+for (j in 1:100) {
+  
+for (i in 1:48) {
+  
+  x <- sample(easiness, i)
+  
+	nn_dists <- rep(0, length(x)-1)
+	for(k in 1:length(x)-1) {
+		nn_dists[k] <- x[k+1] - x[k]
+	}
+	
+	spacing <- -1*sd(nn_dists)
+
+	row <- tibble(iter = j,
+                size = i, 
+                mean = spacing/2)
+  easb <- bind_rows(easb,row)
+}
+}
+
+ggplot(easb, aes(x = factor(size), y = mean))+
+  geom_point(pch = 1)+
+  theme_minimal()
+
+```
+
+
+```{r}
+discrimb <- tibble()
+
+for (j in 1:100) {
+  
+for (i in 1:48) {
+  x <- sample(discrimination, i)
+  mean_x <- mean(x)
+  row <- tibble(iter = j,
+                size = i, 
+                mean = mean_x/2)
+  discrimb <- bind_rows(discrimb,row)
+}
+}
+
+ggplot(discrimb, aes(x = factor(size), y = mean))+
+  geom_point(pch = 1)+
+  theme_minimal()
+
+```
+
+
+```{r}
+spreadb <- tibble()
+
+for (j in 1:100) {
+  
+for (i in 1:48) {
+  x <- sample(easy_spread, i)
+  mean_x <- mean(x)
+  row <- tibble(iter = j,
+                size = i, 
+                mean = mean_x/5)
+  spreadb <- bind_rows(spreadb,row)
+}
+}
+  
+ggplot(spreadb, aes(x = factor(size), y = mean))+
+  geom_point(pch = 1)+
+  theme_minimal()
+
+```
+
+
+
+```{r}
+items <- model_params%>%filter(nlpar=="Easiness")%>%pull(item)
+easiness <- filter(model_params, nlpar=="Easiness") %>% pull(Estimate)
+easy_spread <- model_params%>%filter(nlpar=="Easiness")%>%mutate(width = abs(Q97.5 - Q2.5)) %>% pull(width)
+discrimination <- filter(model_params, nlpar=="Discrimination") %>% pull(Estimate)
+
+full <- data%>%
+  group_by(subjID)%>%
+  summarise(mean_full = mean(correct))
+
 
 score_fn <- function(subset) {
 	easinesses <- sort(easiness[subset])
@@ -126,7 +121,19 @@ score_fn <- function(subset) {
 	}
 	spacing <- -1*sd(nn_dists)
 	mean_discrim <- mean(discrimination[subset])
-	return(spacing + mean_discrim / 6)
+	mean_spread <- mean(easy_spread[subset])
+	 
+	# sel <- items[subset == TRUE]
+	# 
+	# sub_dat <- data%>%
+	#   filter(targetWord %in% sel)%>%
+	#   group_by(subjID)%>%
+	#   summarise(mean_sub = mean(correct))
+	# 
+	# cor <- cor(sub_dat$mean_sub,full$mean_full)
+	# 
+	# return(spacing + mean_discrim/6 + cor/3)
+	return(spacing + mean_discrim/2 - mean_spread/5)
 }
 
 
@@ -144,8 +151,9 @@ proposal_fn <- function(subset) {
 }
 
 simulated_annealing <- function(k) {
-	easiness <- filter(model_params, nlpar=="Easiness") %>% pull(Estimate)
-	discrimination <- filter(model_params, nlpar=="Discrimination") %>% pull(Estimate)
+  easiness <- filter(model_params, nlpar=="Easiness") %>% pull(Estimate)
+  easy_spread <- model_params%>%filter(nlpar=="Easiness")%>%mutate(width = abs(Q97.5 - Q2.5)) %>% pull(width)
+  discrimination <- filter(model_params, nlpar=="Discrimination") %>% pull(Estimate)
 	N <- length(easiness)
 
 	best_subset <- sample(c(rep(TRUE, k), rep(FALSE, N-k)))
@@ -164,42 +172,44 @@ simulated_annealing <- function(k) {
 		} else {
 			rejected <- rejected + 1
 		}
-		if(rejected == 100000) {
+		if(rejected == 10000) {
 			break
 		}
 		temp <- temp*0.999
 	}
-	print(best_score)
-	return(best_subset)
+	#print(best_score)
+	ret <- tibble(best_subset = list(best_subset), 
+	              best_score = best_score)
+	
+	return(ret)
 }
-
-
-sim_a <- simulated_annealing(15)
-
-items <- model_params%>%filter(nlpar=="Easiness")
-sel_items <- items$item[sim_a == TRUE]
-
 ```
+
+```{r, message=F, warning=F, comment=F}
+sim_a <- simulated_annealing(20)
+
+sel_items <- items[unlist(sim_a$best_subset) == TRUE]
+
+sim_a$best_score
+```
+
 
 ## Visualize parameters of selected items
 
 ```{r}
 model_params%>%
   filter(item %in% sel_items)%>%
-  ggplot(aes(reorder(item, -aoa_german_comb), Estimate, ymin = Q2.5, ymax = Q97.5)) +
-	facet_wrap("nlpar", scales = "free_x") +
+  ggplot(aes(reorder(item, -Estimate), Estimate, ymin = Q2.5, ymax = Q97.5)) +
+	facet_wrap(~nlpar, scales = "free_x") +
 	geom_pointrange() +
 	coord_flip() +
 	labs(x = "Item")+
   theme_minimal()
 ```
+
 ## Correaltion with full test
 
 ```{r}
-full <- data%>%
-  group_by(age_group,subjID)%>%
-  summarise(mean_full = mean(correct))
-
 sub2 <- data%>%
   filter(targetWord %in% sel_items)%>%
   group_by(age_group,subjID)%>%
@@ -217,3 +227,156 @@ ggplot(comp2, aes(x = mean_full, y = mean_sub))+
   theme_few()
 ```
 
+## Variation in score 
+
+```{r, warning=FALSE}
+sim_score <- tibble()
+
+for (i in 5:35) {
+  
+  for (j in 1:10) {
+  
+   sim <- simulated_annealing(i)
+  
+   score <- tibble(score = sim$best_score, 
+                   size = i,
+                   iter = j)
+   
+   sim_score <- bind_rows(sim_score, score)
+  }
+  
+}
+
+sim_score%>%
+  ggplot(aes(x = size, y = score, group = iter))+
+  geom_point(pch = 1)+
+  theme_minimal()
+```
+
+## Determine size
+
+```{r, warning=FALSE}
+sim_size <- tibble()
+
+for (j in 1:5) {
+  
+for (i in 5:45) {
+  
+   sim <- simulated_annealing(i)
+  
+    sel <- items[unlist(sim$best_subset) == TRUE]
+  
+    cor <- data%>%
+      filter(targetWord %in% sel)%>%
+      group_by(age_group,subjID)%>%
+  summarise(mean_sub = mean(correct))%>%
+  right_join(full)%>%
+  group_by(age_group)%>%
+  summarise(cor = cor(mean_sub, mean_full))%>%
+  mutate(size = i, 
+         iter = j)
+  
+  sim_size <- bind_rows(sim_size, cor)
+}
+
+}
+  
+sim_size%>%
+  ggplot(aes(x = factor(size), y = cor, col = factor(age_group)))+
+  geom_point(pch = 1)+
+  geom_line(aes(group = interaction(age_group,factor(iter)), lty = factor(iter)))+
+  theme_minimal()+
+  #facet_grid(factor(iter)~.)+
+  labs(x = "No. of items", y = "Correlation with full test")+
+  scale_color_colorblind(name = "Age group")
+
+```
+
+## Select items
+
+```{r}
+item_sel <- tibble()
+
+for (i in 1:100) {
+  
+   sim <- simulated_annealing(20)
+  
+   sel <- items[unlist(sim$best_subset) == TRUE]
+  
+   it <- data%>%
+     distinct(targetWord)%>%
+     filter(targetWord %in% sel)%>%
+     select(targetWord)%>%
+     mutate(iter = i)
+   
+   item_sel <- bind_rows(item_sel, it)
+}
+
+item_sel%>%
+  group_by(targetWord)%>%
+  summarise(n = n()/max(iter))%>%
+  ggplot(aes(x = reorder(targetWord, -n), y = n))+
+  geom_bar(stat = "identity", col = "black", fill = "white")+
+  labs(x = "Item", y = "Proportion selected")+
+  theme_minimal()+
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+## ICC for subset
+
+```{r}
+frq_sel_items <- item_sel%>%
+  group_by(targetWord)%>%
+  summarise(n = n()/max(iter))%>%
+  arrange(-n)%>%
+  slice(1:20)%>%
+  pull(targetWord)
+
+
+icc3 %>% 
+  filter(item %in% frq_sel_items)%>%
+  ggplot(aes(x = theta, y = p,group = item, col = aoa_german_comb)) +
+  #geom_line() +
+  geom_textline(aes(label = item)) +
+  #geom_texthline(yintercept = 0.25, lty = 3, alpha = .75, label = "guessing",hjust = 0.8)+
+  geom_hline(yintercept = 0.25, lty = 3, alpha = .75)+
+  #facet_wrap(~group)+
+  #guides(col = F)+
+  scale_color_viridis_c(name = "AoA") +
+  labs(title = "ICCs for selected items",
+       x = expression(theta~('ability on the logit scale')),
+       y = expression(italic(p)(y==1))) +
+  ylim(0,1)+
+  theme_minimal()
+```
+## Correaltion selected with full test
+
+```{r}
+subsel <- data%>%
+  filter(targetWord %in% frq_sel_items)%>%
+  group_by(age_group,subjID)%>%
+  summarise(mean_sub = mean(correct))
+
+compsel<- full%>%left_join(subsel)
+
+ggplot(compsel, aes(x = mean_full, y = mean_sub))+
+  geom_abline(intercept = 0, slope = 1, lty = 2, alpha = .75)+
+  geom_jitter(pch = 1, alpha = .75, height = 0.01, width = 0.01)+
+  stat_cor()+
+  facet_wrap(~age_group)+
+  ylim(0,1.02)+
+  xlim(0,1.02)+
+  theme_few()
+```
+
+
+```{r}
+model_params%>%
+  filter(item %in% frq_sel_items)%>%
+  ggplot(aes(reorder(item, -Estimate), Estimate, ymin = Q2.5, ymax = Q97.5)) +
+	facet_wrap(~nlpar, scales = "free_x") +
+	geom_pointrange() +
+	coord_flip() +
+	labs(x = "Item")+
+  theme_minimal()
+```

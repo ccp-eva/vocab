@@ -196,8 +196,10 @@ simulated_annealing <- function(k, cooling_ratio=0.999, reset_thresh=1000, break
 			rejected <- rejected + 1
 			no_new_bests <- no_new_bests + 1
 			if(rejected == break_thresh) {
-				print(best_score)
-				return(best_subset)
+				#print(best_score)
+				ret <- tibble(best_subset = list(best_subset), 
+	              best_score = best_score)
+				return(ret)
 			}
 		}
 		# Start random resets to the current best subset if we haven't
@@ -210,10 +212,10 @@ simulated_annealing <- function(k, cooling_ratio=0.999, reset_thresh=1000, break
 		temp <- temp*cooling_ratio
 	}
 	#print(best_score)
-	ret <- tibble(best_subset = list(best_subset), 
-	              best_score = best_score)
+	# ret <- tibble(best_subset = list(best_subset), 
+	#               best_score = best_score)
 	
-	return(ret)
+	#return(ret)
 }
 ```
 

@@ -160,32 +160,54 @@ proposal_fn <- function(subset) {
 	return(subset)
 }
 
-simulated_annealing <- function(k) {
+simulated_annealing <- function(k, cooling_ratio=0.999, reset_thresh=1000, break_thresh=10000) {
   easiness <- filter(model_params, nlpar=="Easiness") %>% pull(Estimate)
   easy_spread <- model_params%>%filter(nlpar=="Easiness")%>%mutate(width = abs(Q97.5 - Q2.5)) %>% pull(width)
   discrimination <- filter(model_params, nlpar=="Discrimination") %>% pull(Estimate)
 	N <- length(easiness)
 
-	best_subset <- sample(c(rep(TRUE, k), rep(FALSE, N-k)))
+	current_subset <- sample(c(rep(TRUE, k), rep(FALSE, N-k)))
+	best_subset <- current_subset
 	best_score <- score_fn(best_subset)
 
 	temp <- 100
 	rejected <- 0
+	no_new_bests <- 0
 	for(i in 1:1e6) {
-		new_subset <- proposal_fn(best_subset)
+		# Score new subset, and toss a coin
+		new_subset <- proposal_fn(current_subset)
 		new_score <- score_fn(new_subset)
 		accept_decrease <- rbernoulli(1, temp / 100)
+
+		# Accept the new subset if it's an improvement, or if our
+		# cooling coin came up heads.
 		if(new_score > best_score | accept_decrease) {
-			best_subset <- new_subset
-			best_score <- new_score
-			#print(best_score)
+			current_subset <- new_subset
+			rejected <- 0
+			if(new_score > best_score) {
+				best_subset <- new_subset
+				best_score <- new_score
+				no_new_bests <- 0
+			} else {
+				no_new_bests <- no_new_bests + 1
+			}
+		# Quit if we've had too many rejections in a row.
 		} else {
 			rejected <- rejected + 1
+			no_new_bests <- no_new_bests + 1
+			if(rejected == break_thresh) {
+				print(best_score)
+				return(best_subset)
+			}
 		}
-		if(rejected == 10000) {
-			break
+		# Start random resets to the current best subset if we haven't
+		# found anything better in quite a while.
+		if(no_new_bests > reset_thresh & rbernoulli(1, 1/100)) {
+			current_subset <- best_subset
 		}
-		temp <- temp*0.999
+
+		# Cool it!
+		temp <- temp*cooling_ratio
 	}
 	#print(best_score)
 	ret <- tibble(best_subset = list(best_subset), 

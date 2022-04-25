@@ -147,7 +147,7 @@ ggplot(p1,aes(y = Predictor, x = .value, fill = stat(x) > 0)) +
     labs(x = "Posterior estimate", y ="")+
   guides(fill = "none")+
   geom_vline(xintercept = 0, linetype = "dashed") +
-  scale_fill_manual(values = c("#85AD00"))+
+  scale_fill_manual(values = c("grey","#85AD00"))+
   xlim(-0.2, 0.5)+
   theme_minimal()
 ```

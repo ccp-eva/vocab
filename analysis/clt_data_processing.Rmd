@@ -224,8 +224,8 @@ data%>%
   group_by(sex)%>%
   summarise(n = length(unique(subjID)))
 
-data%>%
-  filter(subjID == "VPMUX7wQ")
+# data%>%
+#   filter(subjID == "VPMUX7wQ")
 
 ```
 # Reminder

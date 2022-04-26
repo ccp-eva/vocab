@@ -5,7 +5,7 @@
 #     git add -f my/ignore/file.foo
 # 
 # Put your project-specific ignores here:
-saves/
+saves/irt*
 
 *.webm
 

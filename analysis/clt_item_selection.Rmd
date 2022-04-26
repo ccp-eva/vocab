@@ -332,7 +332,7 @@ sim_size%>%
 ```{r}
 item_sel <- tibble()
 
-for (i in 1:100) {
+for (i in 1:1000) {
   
    sim <- simulated_annealing(20)
   

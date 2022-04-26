@@ -215,7 +215,7 @@ irt2 <- brm(
     nl = TRUE
   ),
   prior = prior_2pl,
-  control = list(adapt_delta = 0.999, stepsize = 0.001, max_treedepth = 20),
+  control = list(adapt_delta = 0.9, max_treedepth = 12),
   cores = 6,
   chains = 6,
   iter = 6000
@@ -388,7 +388,7 @@ irt3 <- brm(
     nl = TRUE
   ),
   prior = prior_va_3pl,
-  control = list(adapt_delta = 0.99, max_treedepth = 12),
+  control = list(adapt_delta = 0.9, max_treedepth = 12),
   cores = 6,
   chains = 6,
   iter = 6000

@@ -596,6 +596,7 @@ irt3_dif_sex <- brm(
     logalpha ~ 1 + (0+ sex  |i| targetWord),
     nl = TRUE
   ),
+  control = list(adapt_delta = 0.9, max_treedepth = 12),
   prior = prior_va_3pl,
   cores = 6,
   chains = 6,
@@ -616,41 +617,41 @@ loo_compare(irt3, irt3_dif_sex)%>%as_tibble(rownames = "model")
 
 
 ```{r}
-# eta_sex <- as_draws_df(irt3_dif_sex)%>%
-#   select(b_eta_Intercept, starts_with("r_targetWord__eta"))%>%
-#   mutate(iter = 1:n()) %>% 
-#   pivot_longer(starts_with("r_targetWord")) %>%
-#   mutate(name = str_remove(name, pattern = "r_targetWord__eta"),
-#          name = str_remove_all(name, pattern = "\\[|\\]"))%>%
-#   separate(name, into = c("item", "sex"), sep = "\\,")%>%
-#   mutate(sex = str_remove(sex, pattern = "sex"),
-#          val = b_eta_Intercept + value)%>%
-#   group_by(item, sex)%>%
-#   summarise(mode = estimate_mode(val),
-#             uci = hdi_upper(val),
-#             lci = hdi_lower(val))%>%
-#   mutate(nlpar = "Easiness")
-# 
-# 
-# alpha_sex <- as_draws_df(irt3_dif_sex)%>%
-#   select(b_logalpha_Intercept, starts_with("r_targetWord__logalpha"))%>%
-#   mutate(iter = 1:n()) %>% 
-#   pivot_longer(starts_with("r_targetWord")) %>%
-#   mutate(name = str_remove(name, pattern = "r_targetWord__logalpha"),
-#          name = str_remove_all(name, pattern = "\\[|\\]"))%>%
-#   separate(name, into = c("item", "sex"), sep = "\\,")%>%
-#   mutate(sex = str_remove(sex, pattern = "sex"),
-#          val = exp(b_logalpha_Intercept + value))%>%
-#   group_by(item, sex)%>%
-#   summarise(mode = estimate_mode(val),
-#             uci = hdi_upper(val),
-#             lci = hdi_lower(val))%>%
-#   mutate(nlpar = "Discrimination")
-# 
-# params_sex <- bind_rows(eta_sex, alpha_sex) %>%
-#   left_join(aoa%>%rename(item = targetWord))
-# 
-# saveRDS(params_sex, "../saves/model_params_irt3_dif_sex.rds")
+eta_sex <- as_draws_df(irt3_dif_sex)%>%
+  select(b_eta_Intercept, starts_with("r_targetWord__eta"))%>%
+  mutate(iter = 1:n()) %>%
+  pivot_longer(starts_with("r_targetWord")) %>%
+  mutate(name = str_remove(name, pattern = "r_targetWord__eta"),
+         name = str_remove_all(name, pattern = "\\[|\\]"))%>%
+  separate(name, into = c("item", "sex"), sep = "\\,")%>%
+  mutate(sex = str_remove(sex, pattern = "sex"),
+         val = b_eta_Intercept + value)%>%
+  group_by(item, sex)%>%
+  summarise(mode = estimate_mode(val),
+            uci = hdi_upper(val),
+            lci = hdi_lower(val))%>%
+  mutate(nlpar = "Easiness")
+
+
+alpha_sex <- as_draws_df(irt3_dif_sex)%>%
+  select(b_logalpha_Intercept, starts_with("r_targetWord__logalpha"))%>%
+  mutate(iter = 1:n()) %>%
+  pivot_longer(starts_with("r_targetWord")) %>%
+  mutate(name = str_remove(name, pattern = "r_targetWord__logalpha"),
+         name = str_remove_all(name, pattern = "\\[|\\]"))%>%
+  separate(name, into = c("item", "sex"), sep = "\\,")%>%
+  mutate(sex = str_remove(sex, pattern = "sex"),
+         val = exp(b_logalpha_Intercept + value))%>%
+  group_by(item, sex)%>%
+  summarise(mode = estimate_mode(val),
+            uci = hdi_upper(val),
+            lci = hdi_lower(val))%>%
+  mutate(nlpar = "Discrimination")
+
+params_sex <- bind_rows(eta_sex, alpha_sex) %>%
+  left_join(aoa%>%rename(item = targetWord))
+
+saveRDS(params_sex, "../saves/model_params_irt3_dif_sex.rds")
 
 params_sex <- readRDS("../saves/model_params_irt3_dif_sex.rds")
 
@@ -675,6 +676,7 @@ irt3_dif_order <- brm(
     logalpha ~ 1 + (0+ order  |i| targetWord),
     nl = TRUE
   ),
+  control = list(adapt_delta = 0.9, max_treedepth = 12),
   prior = prior_va_3pl,
   cores = 6,
   chains = 6,

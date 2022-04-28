@@ -608,6 +608,7 @@ irt3_dif_sex <- add_criterion(irt3_dif_sex, "loo")
 saveRDS(irt3_dif_sex, "../saves/irt3_dif_sex.rds")
 
 irt3_dif_sex <- readRDS("../saves/irt3_dif_sex.rds")
+
 ```
 
 ```{r}

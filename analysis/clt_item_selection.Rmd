@@ -14,18 +14,92 @@ data <- read_csv("../data/clt_clean_data.csv")%>%
   filter(age_group != 8)
 
 all_model_params <- read_csv("../data/model_parameters_3PL.csv")
+
+params_sex <- readRDS("../saves/model_params_irt3_dif_sex.rds")%>%
+  select(-uci, -lci)%>%
+  pivot_wider(names_from = sex, values_from = mode)%>%
+  mutate(sex_dif = f-m)
+
+params_order <- readRDS("../saves/model_params_irt3_dif_order.rds")%>%
+  select(-uci, -lci)%>%
+  pivot_wider(names_from = order, values_from = mode)%>%
+  mutate(order_dif = A-B)
 ```
 
 # Optimum subset selection via simulated annealing
 
 ```{r}
 # exclude items based on differential item functioning
+## Split by sex
+params_sex_p <- params_sex%>%
+  group_by(nlpar)%>%
+  mutate(sd = sd(sex_dif), 
+         cut_low = mean(sex_dif)-2*sd,
+         cut_high = mean(sex_dif)+2*sd)
 
-exclude <- c("choir", "flounder", "badger")
+
+ggplot(params_sex_p, aes(x = sex_dif))+
+  geom_vline(aes(xintercept = cut_low), lty = 3, alpha = .75)+
+  geom_vline(aes(xintercept = cut_high), lty = 3, alpha = .75)+
+  geom_histogram(col = "black", alpha = .5)+
+  facet_grid(~nlpar)+
+  theme_minimal()
+
+ggplot(params_sex_p, aes(x = sex_dif, label = item, y = reorder(item, abs(sex_dif))))+
+  geom_vline(aes(xintercept = cut_low), lty = 3, alpha = .75)+
+  geom_vline(aes(xintercept = cut_high), lty = 3, alpha = .75)+
+  geom_point(col = "black", alpha = .5)+
+  facet_grid(~nlpar)+
+  theme_minimal()
+
+exclude_sex <- params_sex_p%>%
+  filter(sex_dif < cut_low | sex_dif > cut_high)%>%
+  pull(item)
+
+## Split by Order
+
+params_order_p <- params_order%>%
+  group_by(nlpar)%>%
+  mutate(sd = sd(order_dif), 
+         cut_low = mean(order_dif)-2*sd,
+         cut_high = mean(order_dif)+2*sd)
+
+ggplot(params_order_p, aes(x = order_dif))+
+  geom_vline(aes(xintercept = cut_low), lty = 3, alpha = .75)+
+  geom_vline(aes(xintercept = cut_high), lty = 3, alpha = .75)+
+  geom_histogram(col = "black", alpha = .5)+
+  facet_grid(~nlpar)+
+  theme_minimal()
+
+
+ggplot(params_order_p, aes(x = order_dif, label = item, y = reorder(item, abs(order_dif))))+
+  geom_vline(aes(xintercept = cut_low), lty = 3, alpha = .75)+
+  geom_vline(aes(xintercept = cut_high), lty = 3, alpha = .75)+
+  geom_point(col = "black", alpha = .5)+
+  facet_grid(~nlpar)+
+  theme_minimal()
+
+exclude_order <- params_order_p%>%
+  filter(order_dif < cut_low | order_dif > cut_high)%>%
+  pull(item)
+
 
 model_params <- all_model_params%>%
-  filter(!item %in% exclude)
+  filter(!item %in% exclude_sex,
+         !item %in% exclude_order)
 ```
+
+```{r}
+items <- model_params%>%filter(nlpar=="Easiness")%>%pull(item)
+easiness <- filter(model_params, nlpar=="Easiness") %>% pull(Estimate)
+easy_spread <- model_params%>%filter(nlpar=="Easiness")%>%mutate(width = abs(Q97.5 - Q2.5)) %>% pull(width)
+discrimination <- filter(model_params, nlpar=="Discrimination") %>% pull(Estimate)
+
+full <- data%>%
+  group_by(subjID)%>%
+  summarise(mean_full = mean(correct))
+```
+
 
 ```{r}
 easb <- tibble()
@@ -78,7 +152,6 @@ ggplot(discrimb, aes(x = factor(size), y = mean))+
 
 ```
 
-
 ```{r}
 spreadb <- tibble()
 
@@ -103,16 +176,6 @@ ggplot(spreadb, aes(x = factor(size), y = mean))+
 
 
 ```{r}
-items <- model_params%>%filter(nlpar=="Easiness")%>%pull(item)
-easiness <- filter(model_params, nlpar=="Easiness") %>% pull(Estimate)
-easy_spread <- model_params%>%filter(nlpar=="Easiness")%>%mutate(width = abs(Q97.5 - Q2.5)) %>% pull(width)
-discrimination <- filter(model_params, nlpar=="Discrimination") %>% pull(Estimate)
-
-full <- data%>%
-  group_by(subjID)%>%
-  summarise(mean_full = mean(correct))
-
-
 score_fn <- function(subset) {
 	easinesses <- sort(easiness[subset])
 	nn_dists <- rep(0, sum(subset)-1)
@@ -295,7 +358,7 @@ sim_size <- tibble()
 
 for (j in 1:5) {
   
-for (i in 5:45) {
+for (i in 5:40) {
   
    sim <- simulated_annealing(i)
   
@@ -332,7 +395,7 @@ sim_size%>%
 ```{r}
 item_sel <- tibble()
 
-for (i in 1:1000) {
+for (i in 1:100) {
   
    sim <- simulated_annealing(20)
   

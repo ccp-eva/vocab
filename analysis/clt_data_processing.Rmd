@@ -96,7 +96,8 @@ dem <- bind_rows(
   read_xlsx("../../../../Cloud/Shared/CLT_Kinderlisten_fuer_Emailversandt_14032022.xlsx", sheet = 11),
   read_xlsx("../../../../Cloud/Shared/CLT_Kinderlisten_fuer_Emailversandt_14032022.xlsx", sheet = 12),
   read_xlsx("../../../../Cloud/Shared/CLT_Kinderlisten_fuer_Emailversandt_14032022.xlsx", sheet = 13),
-  read_xlsx("../../../../Cloud/Shared/CLT_Kinderlisten_fuer_Emailversandt_14032022.xlsx", sheet = 14)
+  read_xlsx("../../../../Cloud/Shared/CLT_Kinderlisten_fuer_Emailversandt_14032022.xlsx", sheet = 14),
+  read_xlsx("../../../../Cloud/Shared/CLT_Kinderlisten_fuer_Emailversandt_14032022.xlsx", sheet = 19),
   )%>%
   select(code,g,`geb.tag`)%>%
   rename(subjID = "code", birth_day = "geb.tag", sex = "g")%>%
@@ -224,8 +225,10 @@ data%>%
   group_by(sex)%>%
   summarise(n = length(unique(subjID)))
 
-# data%>%
-#   filter(subjID == "VPMUX7wQ")
+filtered_data%>%
+  filter(!subjID %in% data$subjID)%>%
+  group_by(subjID)%>%
+  summarise(n())
 
 ```
 # Reminder
@@ -233,6 +236,8 @@ data%>%
 ```{r}
 # reminder1 <- read_xlsx("../../../../Cloud/Shared/CLT_Kinderlisten_fuer_Emailversandt_14032022.xlsx", sheet = 15)
 # reminder2 <- read_xlsx("../../../../Cloud/Shared/CLT_Kinderlisten_fuer_Emailversandt_14032022.xlsx", sheet = 16)
+# reminder3 <- read_xlsx("../../../../Cloud/Shared/CLT_Kinderlisten_fuer_Emailversandt_14032022.xlsx", sheet = 17)
+# reminder4 <- read_xlsx("../../../../Cloud/Shared/CLT_Kinderlisten_fuer_Emailversandt_14032022.xlsx", sheet = 20)
 # 
 # bind_rows(
 #   read_xlsx("../../../../Cloud/Shared/CLT_Kinderlisten_fuer_Emailversandt_14032022.xlsx", sheet = 1),
@@ -245,14 +250,17 @@ data%>%
 #   read_xlsx("../../../../Cloud/Shared/CLT_Kinderlisten_fuer_Emailversandt_14032022.xlsx", sheet = 11),
 #   read_xlsx("../../../../Cloud/Shared/CLT_Kinderlisten_fuer_Emailversandt_14032022.xlsx", sheet = 12),
 #   read_xlsx("../../../../Cloud/Shared/CLT_Kinderlisten_fuer_Emailversandt_14032022.xlsx", sheet = 13),
-#   read_xlsx("../../../../Cloud/Shared/CLT_Kinderlisten_fuer_Emailversandt_14032022.xlsx", sheet = 14)
+#   read_xlsx("../../../../Cloud/Shared/CLT_Kinderlisten_fuer_Emailversandt_14032022.xlsx", sheet = 14),
+#   read_xlsx("../../../../Cloud/Shared/CLT_Kinderlisten_fuer_Emailversandt_14032022.xlsx", sheet = 19)
 #   )%>%
 #   filter(!code %in% data$subjID)%>%
 #   filter(!code %in% reminder1$code)%>%
 #   filter(!code %in% reminder2$code)%>%
+#   filter(!code %in% reminder3$code)%>%
+#   filter(!code %in% reminder4$code)%>%
 #   filter(code != "RY5sK3xF")%>%
 #   filter(code != "s6fdepZJ")%>%
-#   write_xlsx("../data/clt_reminder3.xlsx")
+#   write_xlsx("../data/clt_reminder5.xlsx")
 ```
 
 # Participants
@@ -372,20 +380,68 @@ ggplot(dist, aes(x = reorder(targetWord,aoa_german_comb), y = n, fill = chosenCa
         legend.position = c(0.1,0.8), 
         legend.spacing.y = unit(0, 'cm'))
 ```
+# Reliability
 
-# Location
+## Split-half
 
 ```{r}
-library(mapproj)
-library(raster)
+split <- data%>%
+  mutate(test_half = ifelse(trial%%2 == 0, "even","odd"))%>%
+  group_by(age,order,subjID, test_half)%>%
+  summarise(mean = mean(correct))%>%
+  pivot_wider(names_from = test_half, values_from = mean)
+  
+ggplot(split, aes(x = even, y = odd, col = age))+
+  geom_abline(intercept = 0, slope = 1, lty = 3, alpha = .75)+
+  geom_jitter(pch= 1, width = 0.01, height = 0.01)+
+  scale_color_viridis_c()+
+  stat_cor()+
+  #facet_grid(~order)+
+  #xlim(0.5,1)+
+  #ylim(0.5,1)+
+  theme_minimal()
+
+```
+
+## Re-test 
+
+```{r}
+rep <- filtered_data%>%
+  group_by(subjID)%>%
+  filter(trial == 1)%>%
+  group_by(subjID)%>%
+  summarise(n=n())%>%
+  filter(n > 1)%>%
+  pull(subjID)
+
+rel <- filtered_data%>%
+  filter(subjID %in%rep)%>%
+  mutate(correct = ifelse(targetWord == chosenWord, 1,0))%>%
+  group_by(subjID)%>%
+  mutate(all_trial = 1:length(trial),
+         session = ifelse(all_trial > 52, "round2", "round1"))%>%
+  left_join(dem)%>%
+  select(-timestamp)%>%
+  ungroup()%>%
+  mutate(age = as.numeric(difftime(test_day, birth_day, "days"))/365.25,
+         age_group = substr(age,0,1))%>%
+  select(-birth_day, -test_day)%>%
+  filter(!is.na(age))%>%
+  ungroup()%>%
+  group_by(subjID, age, session)%>%
+  summarise(mean = mean(correct))%>%
+  pivot_wider(names_from = session, values_from = mean)
+  
+ggplot(rel, aes(x = round1, y = round2, col = age))+
+  geom_abline(intercept = 0, slope = 1, lty = 3, alpha = .75)+
+  geom_point(pch= 1)+
+  scale_color_viridis_c()+
+  stat_cor()+
+  xlim(0.5,1)+
+  ylim(0.5,1)+
+  theme_minimal()
+
 ```
 
 
-```{r}
-germany <- getData(country = "Germany", level = 2)%>%
-  st_as_sf()
-
-postcodes <- read_csv("../data/plz-5stellig-daten.csv")%>%
-  separate(note, into = c("zip","NAME_2"), sep=" ")
-```
 

@@ -26,7 +26,7 @@ params_order <- readRDS("../saves/model_params_irt3_dif_order.rds")%>%
   mutate(order_dif = A-B)
 ```
 
-# Optimum subset selection via simulated annealing
+# Differential item functioning
 
 ```{r}
 # exclude items based on differential item functioning
@@ -57,36 +57,37 @@ exclude_sex <- params_sex_p%>%
   pull(item)
 
 ## Split by Order
+### not necessary since model comparison says order adds no predictive value
 
-params_order_p <- params_order%>%
-  group_by(nlpar)%>%
-  mutate(sd = sd(order_dif), 
-         cut_low = mean(order_dif)-2*sd,
-         cut_high = mean(order_dif)+2*sd)
-
-ggplot(params_order_p, aes(x = order_dif))+
-  geom_vline(aes(xintercept = cut_low), lty = 3, alpha = .75)+
-  geom_vline(aes(xintercept = cut_high), lty = 3, alpha = .75)+
-  geom_histogram(col = "black", alpha = .5)+
-  facet_grid(~nlpar)+
-  theme_minimal()
-
-
-ggplot(params_order_p, aes(x = order_dif, label = item, y = reorder(item, abs(order_dif))))+
-  geom_vline(aes(xintercept = cut_low), lty = 3, alpha = .75)+
-  geom_vline(aes(xintercept = cut_high), lty = 3, alpha = .75)+
-  geom_point(col = "black", alpha = .5)+
-  facet_grid(~nlpar)+
-  theme_minimal()
-
-exclude_order <- params_order_p%>%
-  filter(order_dif < cut_low | order_dif > cut_high)%>%
-  pull(item)
-
-
-model_params <- all_model_params%>%
-  filter(!item %in% exclude_sex,
-         !item %in% exclude_order)
+# params_order_p <- params_order%>%
+#   group_by(nlpar)%>%
+#   mutate(sd = sd(order_dif), 
+#          cut_low = mean(order_dif)-2*sd,
+#          cut_high = mean(order_dif)+2*sd)
+# 
+# ggplot(params_order_p, aes(x = order_dif))+
+#   geom_vline(aes(xintercept = cut_low), lty = 3, alpha = .75)+
+#   geom_vline(aes(xintercept = cut_high), lty = 3, alpha = .75)+
+#   geom_histogram(col = "black", alpha = .5)+
+#   facet_grid(~nlpar)+
+#   theme_minimal()
+# 
+# 
+# ggplot(params_order_p, aes(x = order_dif, label = item, y = reorder(item, abs(order_dif))))+
+#   geom_vline(aes(xintercept = cut_low), lty = 3, alpha = .75)+
+#   geom_vline(aes(xintercept = cut_high), lty = 3, alpha = .75)+
+#   geom_point(col = "black", alpha = .5)+
+#   facet_grid(~nlpar)+
+#   theme_minimal()
+# 
+# exclude_order <- params_order_p%>%
+#   filter(order_dif < cut_low | order_dif > cut_high)%>%
+#   pull(item)
+# 
+# 
+# model_params <- all_model_params%>%
+#   filter(!item %in% exclude_sex,
+#          !item %in% exclude_order)
 ```
 
 ```{r}
@@ -356,6 +357,43 @@ sim_score%>%
 ```{r, warning=FALSE}
 sim_size <- tibble()
 
+for (j in 1:6) {
+  
+for (i in 5:40) {
+  
+   sim <- simulated_annealing(i)
+  
+    sel <- items[unlist(sim$best_subset) == TRUE]
+
+
+	sub_dat <- data%>%
+	  filter(targetWord %in% sel)%>%
+	  group_by(subjID)%>%
+	  summarise(mean_sub = mean(correct))
+
+	cor <- cor(sub_dat$mean_sub,full$mean_full)
+	
+	row <- tibble(size = i, 
+         iter = j, 
+         cor = cor)
+  
+  sim_size <- bind_rows(sim_size, row)
+}
+
+}
+  
+sim_size%>%
+  ggplot(aes(x = factor(size), y = cor))+
+  geom_point(pch = 1)+
+  geom_line(aes(group = factor(iter), lty = factor(iter)))+
+  theme_minimal()+
+  labs(x = "No. of items", y = "Correlation with full test")
+
+```
+
+```{r, warning=FALSE}
+sim_size_age <- tibble()
+
 for (j in 1:5) {
   
 for (i in 5:40) {
@@ -374,12 +412,12 @@ for (i in 5:40) {
   mutate(size = i, 
          iter = j)
   
-  sim_size <- bind_rows(sim_size, cor)
+  sim_size_age <- bind_rows(sim_size_age, cor)
 }
 
 }
   
-sim_size%>%
+sim_size_age%>%
   ggplot(aes(x = factor(size), y = cor, col = factor(age_group)))+
   geom_point(pch = 1)+
   geom_line(aes(group = interaction(age_group,factor(iter)), lty = factor(iter)))+
@@ -397,7 +435,7 @@ item_sel <- tibble()
 
 for (i in 1:100) {
   
-   sim <- simulated_annealing(20)
+   sim <- simulated_annealing(15)
   
    sel <- items[unlist(sim$best_subset) == TRUE]
   
@@ -433,15 +471,17 @@ frq_sel_items <- item_sel%>%
 
 icc3 %>% 
   filter(item %in% frq_sel_items)%>%
+  #filter(item == "orchid")%>%
   ggplot(aes(x = theta, y = p,group = item, col = aoa_german_comb)) +
   #geom_line() +
-  geom_textline(aes(label = item)) +
+  geom_line(col = "firebrick", alpha = .5) +
+  #geom_textline(aes(label = item)) +
   #geom_texthline(yintercept = 0.25, lty = 3, alpha = .75, label = "guessing",hjust = 0.8)+
   geom_hline(yintercept = 0.25, lty = 3, alpha = .75)+
   #facet_wrap(~group)+
-  #guides(col = F)+
+  guides(col = F)+
   scale_color_viridis_c(name = "AoA") +
-  labs(title = "ICCs for selected items",
+  labs(#title = "ICCs for selected items",
        x = expression(theta~('ability on the logit scale')),
        y = expression(italic(p)(y==1))) +
   ylim(0,1)+
@@ -461,7 +501,10 @@ ggplot(compsel, aes(x = mean_full, y = mean_sub))+
   geom_abline(intercept = 0, slope = 1, lty = 2, alpha = .75)+
   geom_jitter(pch = 1, alpha = .75, height = 0.01, width = 0.01)+
   stat_cor()+
-  facet_wrap(~age_group)+
+  #facet_wrap(~age_group)+
+  labs(#title = "ICCs for selected items",
+       x = "Full test - proportion correct",
+       y = "Short test - proportion correct") +
   ylim(0,1.02)+
   xlim(0,1.02)+
   theme_few()

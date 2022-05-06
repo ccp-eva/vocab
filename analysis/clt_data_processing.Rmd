@@ -380,6 +380,7 @@ ggplot(dist, aes(x = reorder(targetWord,aoa_german_comb), y = n, fill = chosenCa
         legend.position = c(0.1,0.8), 
         legend.spacing.y = unit(0, 'cm'))
 ```
+
 # Reliability
 
 ## Split-half
@@ -443,5 +444,34 @@ ggplot(rel, aes(x = round1, y = round2, col = age))+
 
 ```
 
+# Group differneces
 
+```{r}
+data%>%
+  group_by(sex)%>%
+  summarise(mage = mean(age))
 
+sex_dif <- data%>%
+  group_by(sex)%>%
+  tidyboot_mean(col = correct)
+
+ggplot(sex_dif, aes(x = sex, y = mean))+
+  geom_bar(stat = "identity", alpha = .25)+
+  geom_pointrange(aes(ymin = ci_lower, ymax = ci_upper), alpha = .75)+
+  theme_minimal()
+```
+
+```{r}
+data%>%
+  group_by(order)%>%
+  summarise(mage = mean(age))
+
+order_dif <- data%>%
+  group_by(order)%>%
+  tidyboot_mean(col = correct)
+
+ggplot(order_dif, aes(x = order, y = mean))+
+  geom_bar(stat = "identity", alpha = .25)+
+  geom_pointrange(aes(ymin = ci_lower, ymax = ci_upper), alpha = .75)+
+  theme_minimal()
+```

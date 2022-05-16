@@ -20,10 +20,10 @@ params_sex <- readRDS("../saves/model_params_irt3_dif_sex.rds")%>%
   pivot_wider(names_from = sex, values_from = mode)%>%
   mutate(sex_dif = f-m)
 
-params_order <- readRDS("../saves/model_params_irt3_dif_order.rds")%>%
-  select(-uci, -lci)%>%
-  pivot_wider(names_from = order, values_from = mode)%>%
-  mutate(order_dif = A-B)
+# params_order <- readRDS("../saves/model_params_irt3_dif_order.rds")%>%
+#   select(-uci, -lci)%>%
+#   pivot_wider(names_from = order, values_from = mode)%>%
+#   mutate(order_dif = A-B)
 ```
 
 # Differential item functioning
@@ -357,7 +357,7 @@ sim_score%>%
 ```{r, warning=FALSE}
 sim_size <- tibble()
 
-for (j in 1:6) {
+for (j in 1:10) {
   
 for (i in 5:40) {
   
@@ -386,6 +386,7 @@ sim_size%>%
   ggplot(aes(x = factor(size), y = cor))+
   geom_point(pch = 1)+
   geom_line(aes(group = factor(iter), lty = factor(iter)))+
+  scale_linetype(name = "Run")+
   theme_minimal()+
   labs(x = "No. of items", y = "Correlation with full test")
 
@@ -422,6 +423,7 @@ sim_size_age%>%
   geom_point(pch = 1)+
   geom_line(aes(group = interaction(age_group,factor(iter)), lty = factor(iter)))+
   theme_minimal()+
+  scale_linetype(name = "Run")+
   #facet_grid(factor(iter)~.)+
   labs(x = "No. of items", y = "Correlation with full test")+
   scale_color_colorblind(name = "Age group")
@@ -435,7 +437,7 @@ item_sel <- tibble()
 
 for (i in 1:100) {
   
-   sim <- simulated_annealing(15)
+   sim <- simulated_annealing(20)
   
    sel <- items[unlist(sim$best_subset) == TRUE]
   
@@ -471,16 +473,18 @@ frq_sel_items <- item_sel%>%
 
 icc3 %>% 
   filter(item %in% frq_sel_items)%>%
+  #mutate(sel = ifelse(item %in% frq_sel_items, "a", "b"))%>%
   #filter(item == "orchid")%>%
   ggplot(aes(x = theta, y = p,group = item, col = aoa_german_comb)) +
-  #geom_line() +
-  geom_line(col = "firebrick", alpha = .5) +
-  #geom_textline(aes(label = item)) +
+  #geom_line(alpha = .5) +
+  #geom_line(col = "firebrick", alpha = .5) +
+  geom_textline(aes(label = item)) +
   #geom_texthline(yintercept = 0.25, lty = 3, alpha = .75, label = "guessing",hjust = 0.8)+
   geom_hline(yintercept = 0.25, lty = 3, alpha = .75)+
   #facet_wrap(~group)+
   guides(col = F)+
   scale_color_viridis_c(name = "AoA") +
+  #scale_color_manual(values = c("firebrick", "grey"))+
   labs(#title = "ICCs for selected items",
        x = expression(theta~('ability on the logit scale')),
        y = expression(italic(p)(y==1))) +

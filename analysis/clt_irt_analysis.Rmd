@@ -81,13 +81,11 @@ irt1 <- brm(
   family = brmsfamily("bernoulli", "logit"),
   correct ~ 1 + (1 | targetWord) + (1 | subjID),
   prior = prior_1pl,
-  control = list(adapt_delta = 0.9),
+  control = list(adapt_delta = 0.95, max_treedepth = 12),
   cores = 6,
   chains = 6,
   iter = 6000
-)
-
-irt1 <- add_criterion(irt1, "loo") 
+)%>%add_criterion(c("loo","waic")) 
 
 saveRDS(irt1, "../saves/irt1.rds")
 
@@ -215,13 +213,11 @@ irt2 <- brm(
     nl = TRUE
   ),
   prior = prior_2pl,
-  control = list(adapt_delta = 0.9, max_treedepth = 12),
+  control = list(adapt_delta = 0.95, max_treedepth = 12),
   cores = 6,
   chains = 6,
   iter = 6000
-)
-
-irt2 <- add_criterion(irt2, "loo") 
+)%>%add_criterion(c("loo","waic")) 
 
 saveRDS(irt2, "../saves/irt2.rds")
 
@@ -388,13 +384,11 @@ irt3 <- brm(
     nl = TRUE
   ),
   prior = prior_va_3pl,
-  control = list(adapt_delta = 0.9, max_treedepth = 12),
+  control = list(adapt_delta = 0.95, max_treedepth = 12),
   cores = 6,
   chains = 6,
   iter = 6000
-)
-
-irt3 <- add_criterion(irt3, "loo") 
+)%>%add_criterion(c("loo","waic")) 
 
 saveRDS(irt3, "../saves/irt3.rds")
 
@@ -409,6 +403,8 @@ summary(irt3)
 plot(irt3)
 
 pp_check(irt3)
+
+pairs(irt3)
 ```
 
 ### Easiness and discrimination
@@ -468,7 +464,7 @@ params_joy <- bind_rows(eta_joy, alpha_joy) %>%
   rename(item = name)%>%
   left_join(aoa%>%rename(item = targetWord))
 
-#saveRDS(params_joy, "../saves/model_params_irt3_draws.rds")
+saveRDS(params_joy, "../saves/model_params_irt3_draws.rds")
 
 ggplot(params_joy, aes(y = reorder(item, -aoa_german_comb), x = val, fill = aoa_german_comb))+
   geom_density_ridges(size = 0.2,scale = 4, alpha = .5)+
@@ -476,11 +472,6 @@ ggplot(params_joy, aes(y = reorder(item, -aoa_german_comb), x = val, fill = aoa_
   labs(y = "Item")+
   scale_fill_viridis_c(name = "AoA")+
   theme_minimal()
-
-params_joy%>%
-  group_by(nlpar)%>%
-  summarise(min = min(val), 
-            max = max(val))
 ```
 
 
@@ -502,6 +493,8 @@ icc3 <- posterior_samples(irt3)%>%
   group_by(theta, item) %>% 
   summarise(p = mean(p))%>%
   left_join(aoa%>%rename(item = targetWord))
+
+#saveRDS(icc3, "../saves/icc_3PL.rds")
 
 ```
 
@@ -596,14 +589,12 @@ irt3_dif_sex <- brm(
     logalpha ~ 1 + (0+ sex  |i| targetWord),
     nl = TRUE
   ),
-  control = list(adapt_delta = 0.9, max_treedepth = 12),
+  control = list(adapt_delta = 0.95, max_treedepth = 12),
   prior = prior_va_3pl,
   cores = 6,
   chains = 6,
   iter = 6000
-)
-
-irt3_dif_sex <- add_criterion(irt3_dif_sex, "loo") 
+)%>%add_criterion(c("loo","waic")) 
 
 saveRDS(irt3_dif_sex, "../saves/irt3_dif_sex.rds")
 
@@ -677,14 +668,12 @@ irt3_dif_order <- brm(
     logalpha ~ 1 + (0+ order  |i| targetWord),
     nl = TRUE
   ),
-  control = list(adapt_delta = 0.9, max_treedepth = 12),
+  control = list(adapt_delta = 0.95, max_treedepth = 12),
   prior = prior_va_3pl,
   cores = 6,
   chains = 6,
   iter = 6000
-)
-
-irt3_dif_order <- add_criterion(irt3_dif_order, "loo") 
+)%>%add_criterion(c("loo","waic")) 
 
 saveRDS(irt3_dif_order, "../saves/irt3_dif_order.rds")
 

@@ -1,0 +1,34 @@
+---
+title: "CLT extension visuals"
+output: html_document
+---
+```{r setup, include=FALSE}
+library(tidyverse)
+library(ggpubr)
+library(ggthemes)
+```
+
+
+```{r}
+data <- read_csv("../data/clt_clean_data.csv")%>%
+  filter(age_group != 8)
+
+all_model_params <- read_csv("../data/model_parameters_3PL.csv")
+
+params_sex <- readRDS("../saves/model_params_irt3_dif_sex.rds")%>%
+  select(-uci, -lci)%>%
+  pivot_wider(names_from = sex, values_from = mode)%>%
+  mutate(sex_dif = f-m)
+
+icc3 <- readRDS("../saves/icc_3PL.rds")
+```
+
+```{r}
+all_model_params%>%
+  filter(nlpar == "Easiness")%>%
+  ggplot(aes(x = Estimate, y = aoa_german_comb))+
+  #geom_abline(intercept = 0, slope = 1, lty = 2, alpha = .75)+
+  geom_point()+
+  stat_cor()
+```
+

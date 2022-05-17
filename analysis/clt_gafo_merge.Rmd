@@ -88,7 +88,6 @@ ggarrange(
 )
 ```
 
-
 ```{r}
 merge_model <- merge%>%
   ungroup()%>%

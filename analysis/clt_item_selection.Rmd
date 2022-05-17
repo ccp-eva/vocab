@@ -85,9 +85,8 @@ exclude_sex <- params_sex_p%>%
 #   pull(item)
 # 
 # 
-# model_params <- all_model_params%>%
-#   filter(!item %in% exclude_sex,
-#          !item %in% exclude_order)
+model_params <- all_model_params%>%
+  filter(!item %in% exclude_sex)
 ```
 
 ```{r}
@@ -357,7 +356,7 @@ sim_score%>%
 ```{r, warning=FALSE}
 sim_size <- tibble()
 
-for (j in 1:10) {
+for (j in 1:100) {
   
 for (i in 5:40) {
   
@@ -382,10 +381,16 @@ for (i in 5:40) {
 
 }
   
+saveRDS(sim_size, "../saves/sim_size.rds")
+
 sim_size%>%
-  ggplot(aes(x = factor(size), y = cor))+
-  geom_point(pch = 1)+
-  geom_line(aes(group = factor(iter), lty = factor(iter)))+
+  group_by(size)%>%
+  summarise(mean_cor = mean(cor),
+         min = min(cor),
+         max = max(cor))%>%
+  ggplot(aes(x = factor(size), y = mean_cor))+
+  geom_pointrange(aes(ymin=min, max = max), pch = 1)+
+  geom_line(aes(group = 1))+
   scale_linetype(name = "Run")+
   theme_minimal()+
   labs(x = "No. of items", y = "Correlation with full test")
@@ -417,7 +422,9 @@ for (i in 5:40) {
 }
 
 }
-  
+
+saveRDS(sim_size_age, "../saves/sim_size_age.rds")
+
 sim_size_age%>%
   ggplot(aes(x = factor(size), y = cor, col = factor(age_group)))+
   geom_point(pch = 1)+
@@ -469,6 +476,8 @@ frq_sel_items <- item_sel%>%
   arrange(-n)%>%
   slice(1:20)%>%
   pull(targetWord)
+
+saveRDS(frq_sel_items, "../saves/selected_items.rds")
 
 
 icc3 %>% 

@@ -6,12 +6,21 @@ output: html_document
 library(tidyverse)
 library(ggpubr)
 library(ggthemes)
+library(tidyboot)
+library(readxl)
+library(geomtextpath)
+library(ggridges)
 ```
 
 
 ```{r}
 data <- read_csv("../data/clt_clean_data.csv")%>%
-  filter(age_group != 8)
+  filter(age_group != 8)%>%
+  left_join(read_xlsx("../data/clt_new_words.xlsx")%>%
+              mutate(aoa_german_comb = str_replace(aoa_german_comb, "\\,", "\\."),
+                     aoa_german_comb= as.numeric(aoa_german_comb), 
+                     complexity_score = `Complexity score`)%>%
+              select(german, word_freq, complexity_score))
 
 all_model_params <- read_csv("../data/model_parameters_3PL.csv")
 
@@ -21,7 +30,177 @@ params_sex <- readRDS("../saves/model_params_irt3_dif_sex.rds")%>%
   mutate(sex_dif = f-m)
 
 icc3 <- readRDS("../saves/icc_3PL.rds")
+
+frq_sel_items <- readRDS("../saves/selected_items.rds")
+
+
+sim_size <- readRDS("../saves/sim_size.rds")
+
+sim_size_age <- readRDS("../saves/sim_size_age.rds")
+
+params_joy <- readRDS("../saves/model_params_irt3_draws.rds")
 ```
+
+# Data descriptives
+
+```{r}
+p2 <- data%>%
+  group_by(source,subjID, age)%>%
+  tidyboot_mean(col = correct)
+
+page <- ggplot(p2, aes(x = age, y = mean))+
+  #stat_cor()+
+  geom_hline(yintercept = 0.25, lty = 3, alpha = .75)+
+  #geom_point(alpha = .25)+
+  geom_pointrange(aes(ymin = ci_lower, ymax = ci_upper), alpha = .5, size = .25)+
+  #geom_point( alpha = .75)+
+  geom_smooth(method = "lm", col = "firebrick", alpha = .25)+
+  labs(x = "Participant age", y = "Proportion correct (by participant)")+
+  ylim(0,1)+
+  xlim(3,8)+
+  theme_few()
+```
+
+```{r}
+p1 <- data%>%
+  group_by(targetWord, aoa_german_comb, word_freq, complexity_score,german)%>%
+  tidyboot_mean(col = correct)
+
+# p1%>%
+#   ungroup()%>%
+#   filter(!is.na(word_freq))%>%
+#   mutate(aoa_german_comb = scale(aoa_german_comb), 
+#          word_freq = scale(word_freq), 
+#          complexity_score = scale(complexity_score))%>%
+#   pivot_longer(cols = c(aoa_german_comb, word_freq, complexity_score), names_to = "measure", values_to = "score")%>%
+# ggplot(aes(x = score, y = mean))+
+#   stat_cor(aes(label = paste(..r.label..)),r.accuracy = 0.01, cor.coef.name = "r",label.y = 0.2)+
+#   geom_hline(yintercept = 0.25, lty = 3, alpha = .75)+
+#   geom_pointrange(aes(ymin = ci_lower, ymax = ci_upper), alpha = .75, pch = 1)+
+#   facet_grid(~measure)+
+#   #geom_textpath(aes(label = german), hjust = -.2) +
+#   #geom_point( alpha = .75)+
+#   geom_smooth(method = "lm", alpha = .25)+
+#   labs(x = "Comparison score (scaled)", y = "Proportion correct")+
+#   ylim(0,1)+
+#   theme_few()
+
+paoa <- p1%>%
+ggplot(aes(x = aoa_german_comb, y = mean))+
+  stat_cor(aes(label = paste(..r.label..)),r.accuracy = 0.01, cor.coef.name = "r",label.y = 0.85)+
+  geom_hline(yintercept = 0.25, lty = 3, alpha = .75)+
+  geom_pointrange(aes(ymin = ci_lower, ymax = ci_upper), alpha = .75, pch = 1)+
+  #facet_grid(~measure)+
+  #geom_textpath(aes(label = german), hjust = -.2) +
+  #geom_point( alpha = .75)+
+  geom_smooth(method = "lm", col = "firebrick", alpha = .25)+
+  labs(x = "Age of acquisition (adult rated)", y = "Proportion correct (by item)")+
+  ylim(0,1)+
+  theme_few()
+```
+
+```{r}
+ggarrange(page, paoa, ncol = 1)
+```
+```{r}
+ggsave("../graphs/data_fig.png", width = 4, height = 6, scale = 1.25)
+```
+
+```{r}
+picc <- icc3 %>% 
+  mutate(select = ifelse(item %in% frq_sel_items,"yes", "no"),
+         pos = as.numeric(as.factor(item)))
+
+
+iccp <- ggplot(picc%>%filter(select == "yes"), aes(x = theta, y = p,group = item)) +
+  #geom_line(alpha = .5) +
+  geom_line(data = picc%>%filter(select == "no"), aes(x = theta, y = p,group = item), col = "grey", alpha = .5)+
+  #geom_line(aes(x = theta, y = p,group = item, col = item))+
+  geom_textline(aes(label = item, col = item),  gap = T, size = 3) +
+  #geom_texthline(yintercept = 0.25, lty = 3, alpha = .75, label = "guessing",hjust = 0.8)+
+  geom_hline(yintercept = 0.25, lty = 3, alpha = .75)+
+  #facet_wrap(~group)+
+  guides(col = F)+
+  scale_color_viridis_d()+
+  labs(#title = "ICCs for selected items",
+       x = expression(theta~('ability on the logit scale')),
+       y = expression(italic(p)(y==1))) +
+  ylim(0,1)+
+  theme_few()
+```
+
+
+
+```{r}
+pss <- sim_size%>%
+  group_by(size)%>%
+  summarise(mean_cor = mean(cor),
+         min = min(cor),
+         max = max(cor))
+
+pssa <- sim_size_age%>%
+  group_by(size, age_group)%>%
+  summarise(mean_cor = mean(cor),
+         min = min(cor),
+         max = max(cor))
+
+
+psel <- ggplot()+
+  geom_vline(xintercept = 20, alpha = .5, col = "#31493C")+
+  geom_pointrange(data = pssa,aes(x = size, y = mean_cor,ymin=min, max = max, col = factor(age_group)),pch = 1, alpha = .5)+
+  geom_line(data = pssa, aes(group = factor(age_group), x = size, y = mean_cor, col = factor(age_group)), alpha = .5)+
+  geom_pointrange(data = pss,aes(x = size, y = mean_cor,ymin=min, max = max),pch = 1)+
+  geom_line(data = pss, aes(group = 1, x = size, y = mean_cor))+
+  scale_linetype(name = "Run")+
+  scale_x_continuous(breaks = c(5,10,15,20,25,30,35,40))+
+  scale_color_ptol(name = "Age group")+
+  theme_few()+
+  ylim(0.6, 1)+
+  theme(legend.position = c(.8,.4))+
+  labs(x = "No. of items in subset", y = "Correlation with full test")
+```
+
+```{r}
+pparam <- all_model_params%>%
+  filter(item %in% frq_sel_items)%>%
+  mutate(nlpar = factor(nlpar, levels = c("Easiness", "Discrimination")))%>%
+  ggplot(aes(reorder(item, -Estimate), col = item, Estimate, ymin = Q2.5, ymax = Q97.5)) +
+	facet_wrap(~nlpar, scales = "free_x") +
+  scale_color_viridis_d()+
+	geom_pointrange(pch = 1) +
+	coord_flip() +
+  guides(col = F)+
+	labs(x = "Target word")+
+  theme_few()
+
+pparam2 <- params_joy%>%
+  left_join(all_model_params)%>%
+  filter(item %in% frq_sel_items)%>%
+  mutate(nlpar = factor(nlpar, levels = c("Easiness", "Discrimination")))%>%
+  ggplot( aes(y = reorder(item, -Estimate), x = val, fill = item))+
+  geom_density_ridges(size = 0.2,scale = 4, alpha = .5)+
+  facet_grid(~nlpar, scales = "free_x")+
+  labs(y = "Target word", x = "Estimate")+
+  scale_fill_viridis_d()+
+  guides(fill = F)+
+  theme_minimal()
+```
+
+```{r}
+ggarrange(
+          ggarrange(psel,pparam2, ncol = 1, labels = c("A","B"), heights = c(1,1.2)),iccp,
+          widths = c(1,1.5), labels = c("","C"))
+
+ggarrange(
+          ggarrange(psel,pparam, ncol = 1, labels = c("A","B"), heights = c(1,1)),iccp,
+          widths = c(1,1.5), labels = c("","C"))
+```
+
+
+```{r}
+ggsave("../graphs/item_fig.png", width = 12, height = 5, scale = 1.25, bg = "white")
+```
+
 
 ```{r}
 all_model_params%>%

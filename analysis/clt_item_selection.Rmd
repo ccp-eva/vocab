@@ -400,7 +400,7 @@ sim_size%>%
 ```{r, warning=FALSE}
 sim_size_age <- tibble()
 
-for (j in 1:5) {
+for (j in 1:100) {
   
 for (i in 5:40) {
   
@@ -426,9 +426,13 @@ for (i in 5:40) {
 saveRDS(sim_size_age, "../saves/sim_size_age.rds")
 
 sim_size_age%>%
-  ggplot(aes(x = factor(size), y = cor, col = factor(age_group)))+
-  geom_point(pch = 1)+
-  geom_line(aes(group = interaction(age_group,factor(iter)), lty = factor(iter)))+
+  group_by(size, age_group)%>%
+  summarise(mean_cor = mean(cor),
+         min = min(cor),
+         max = max(cor))%>%
+  ggplot(aes(x = factor(size), y = mean_cor, col = factor(age_group)))+
+  geom_pointrange(aes(ymin=min, max = max), pch = 1)+
+  geom_line(aes(group = factor(age_group)))+
   theme_minimal()+
   scale_linetype(name = "Run")+
   #facet_grid(factor(iter)~.)+

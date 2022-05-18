@@ -572,7 +572,9 @@ iic3%>%
 ## Model comparison
 
 ```{r}
-loo_compare(irt1, irt2, irt3)%>%as_tibble(rownames = "model")
+mc1 <- loo_compare(irt1, irt2, irt3)%>%as_tibble(rownames = "model")
+
+write_csv(mc1, "../saves/model_comparison.csv")
 ```
 
 ## Differential Item Functioning
@@ -603,7 +605,9 @@ irt3_dif_sex <- readRDS("../saves/irt3_dif_sex.rds")
 ```
 
 ```{r}
-loo_compare(irt3, irt3_dif_sex)%>%as_tibble(rownames = "model")
+mc2 <- loo_compare(irt3, irt3_dif_sex)%>%as_tibble(rownames = "model")
+
+write_csv(mc2, "../saves/model_comparison_dif_sex.csv")
 ```
 
 
@@ -681,7 +685,9 @@ irt3_dif_order <- readRDS("../saves/irt3_dif_order.rds")
 ```
 
 ```{r}
-loo_compare(irt3, irt3_dif_order)%>%as_tibble(rownames = "model")
+mc3 <- loo_compare(irt3, irt3_dif_order)%>%as_tibble(rownames = "model")
+
+write_csv(mc3, "../saves/model_comparison_dif_order.csv")
 ```
 
 ```{r}

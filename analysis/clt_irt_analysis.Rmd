@@ -691,6 +691,12 @@ write_csv(mc3, "../saves/model_comparison_dif_order.csv")
 ```
 
 ```{r}
+mc4 <- loo_compare(irt3, irt3_dif_sex, irt3_dif_order)%>%as_tibble(rownames = "model")
+
+write_csv(mc4, "../saves/model_comparison_dif.csv")
+```
+
+```{r}
 
 eta_order <- as_draws_df(irt3_dif_order)%>%
   select(b_eta_Intercept, starts_with("r_targetWord__eta"))%>%

@@ -1,0 +1,226 @@
+---
+title             : "An Item Response Theory based open-source online assessment of vocabulary skills in 3 to 8-year-old children"
+shorttitle        : "Vocabulary assessment in 3 to 8-year-old children"
+
+author: 
+  - name          : "Manuel Bohn"
+    affiliation   : "1"
+    corresponding : yes    # Define only one corresponding author
+    address       : "Max Planck Institute for Evolutionary Anthropology, Deutscher Platz 6, 04103 Leipzig, Germany"
+    email         : "manuel_bohn@eva.mpg.de"
+    role:         # Contributorship roles (e.g., CRediT, https://casrai.org/credit/)
+      - Conceptualization
+      - Formal Analysis
+      - Writing - Original Draft Preparation
+      - Writing - Review & Editing
+  - name          : "Julia Prein"
+    affiliation   : "1"
+    role:
+      - Conceptualization
+      - Software
+      - Writing - Original Draft Preparation
+      - Writing - Review & Editing
+      
+  - name          : "Daniel Haun"
+    affiliation   : "1"
+    role:
+      - Conceptualization
+      - Writing - Review & Editing
+      
+  - name          : "Natalia Gagarina"
+    affiliation   : "2"
+    role:
+      - Conceptualization
+      - Writing - Original Draft Preparation
+      - Writing - Review & Editing
+
+affiliation:
+  - id            : "1"
+    institution   : "Department of Comparative Cultural Psychology, Max Planck Institute for Evolutionary Anthropology, Leipzig, Germany"
+  - id            : "2"
+    institution   : "Leibniz-Zentrum Allgemeine Sprachwissenschaft, Berlin, Germany"
+
+authornote: |
+  We thank Susanne Mauritz for help with the data collection.
+
+abstract: |
+  One or two sentences providing a **basic introduction** to the field,  comprehensible to a scientist in any discipline.
+  
+  Two to three sentences of **more detailed background**, comprehensible  to scientists in related disciplines.
+  
+  One sentence clearly stating the **general problem** being addressed by  this particular study.
+  
+  One sentence summarizing the main result (with the words "**here we show**" or their equivalent).
+  
+  Two or three sentences explaining what the **main result** reveals in direct comparison to what was thought to be the case previously, or how the  main result adds to previous knowledge.
+  
+  One or two sentences to put the results into a more **general context**.
+  
+  Two or three sentences to provide a **broader perspective**, readily comprehensible to a scientist in any discipline.
+  
+  <!-- https://tinyurl.com/ybremelq -->
+  
+keywords          : "keywords"
+wordcount         : "X"
+
+bibliography      : "../../../References/library.bib"
+
+floatsintext      : yes
+figurelist        : no
+tablelist         : no
+footnotelist      : no
+linenumbers       : yes
+mask              : no
+draft             : no
+
+documentclass     : "apa6"
+classoption       : "man"
+output            : papaja::apa6_pdf
+---
+
+```{r setup, include = FALSE}
+library("papaja")
+library(tidyverse)
+```
+
+```{r analysis-preferences}
+# Seed for random number generation
+set.seed(42)
+knitr::opts_chunk$set(cache.extra = knitr::rand_seed)
+```
+
+# Introduction
+
+Language is a defining feature of beig human and learning language one of the key developmental objectives. Individual differences in language abilities are a good predictor for .... . From a methodological pont of view it is important to be able to assess individual differences in language abilities in different age groups. 
+
+With the CDI, there is a great open - access A range of different measures exist. @dunn1965peabody
+
+paucity of vocabulary measures for older children in general and in particular for high-quality ones. 
+
+
+use irt to select high quality items, implement to be portable, make open access. on the one hand offer the research community with German speaking children a  much needed open access tool to measure vocabular skills. on the other hand, we provide a roadmap and basic materials for adapting the task to different languages. 
+
+
+# Item-pool generation
+
+The initial item pool consisted of 32 items taken from the German CLT [@haman2015designing; @haman2017noun] and 20 new items. The addition of new items was necessary due to ceiling effects for monolingual 5-year-olds in the previous version. New items were generated in line with the construction of the original CLT in a stepwise process. First, we compiled a list of age-of-acquisition ratings for 3,928 German words from various sources [@luniewska2019age; @schroder2012german; @birchenough2017rated]. From this list, we selected 20 words based on the following criteria: words should refer to concepts that could easily and unambiguously be depicted in a drawing, age-of-acquisition ratings should be spread equally between six and ten years of age, and words should have comparable complexity indices [see @haman2017noun]. The so-selected 20 words served as additional target words in the item pool (total of 52 items). For each target word, we selected three distractors. The first distractor was unrelated to the target word but was chosen to have a comparable rated age-of-acquisition. The second distractor was semantically related to the target word (e.g. ruin -- fortress; elk -- mammoth). The third distractor was phonetically similar to the target, that is ... (e.g. Gazelle [eng.: gazelle] -- Libelle [eng.: dragonfly]). The full list of targets and distractors can be found in the associate online repository. Finally, an artist (same as for the original CLT items) drew pictures representing each target and distractor words. This procedure ensured that the original CLT and the newly generated items formed a homogeneous pool. 
+
+# Task design and implementation
+
+The task was programmed in `JavaScript` and `HTML` and presented as a website which could be opened in any modern web browser. In addition to participants' responses, we recorded webcam videos^[Due to access rights issues, webcam recording was not possible when participants used iOS devices.]. Both files were sent to a server after the study was finished. The task started with several instruction pages that explained to parents the task and how they should assists their child if needed. The task can be accessed via the following link: https://ccp-odc.eva.mpg.de/clt-extended/.
+
+On each trial (see Figure \@ref(fig:fig1)), participants saw four pictures and heard a verbal prompt (pre-recorded by a native German speaker) asking them to select one of the pictures (prompt: "Zeige mir [target word]"; eng.: "Show me [target word]"). The verbal prompt was automatically played in the beginning of the trial but could also be replayed by clicking on a loudspeaker button. Selected pictures were marked via a blue frame. Participants moved on to the next trial by clicking on a button at the bottom of the screen. If children could not select the pictures themselves (via mouse click or tapping on the touch screen), they should point to the screen and parents should select the pointed-to picture.
+
+The positioning of the pictures (target and distractors) was counterbalanced so that the target picture appeared equally often in each corner and no more than twice in the same corner. We generated two versions of the task with different item orders. Each order was created so that trial number and age-of-acquisition ratings were correlated with *r* = .85. We assumed that this would make later trials more difficult, but not perfectly so.
+
+(ref:figlab1) Screenshot from the task. On each trial, participants heard a word and were asked to pick out the corresponding picture. Verbal prompts could be replayed by pressing the loudspeaker button.
+
+```{r fig1, include = T, fig.align = "center", fig.cap = "(ref:figlab1)", out.width="50%"}
+knitr::include_graphics("../graphs/task_fig.png")
+```
+
+# Item selection
+
+The goal of the item selection process was to find the minimal subset of items necessary to measure vocabulary skills on an individual level. As a first step, we collected data for the full 52-item task from a large sample of children in the target age range. Next, we determined which IRT model best fit the data and used this model to estimate the item parameters (difficulty and discrimination). We removed items that showed differential item functioning (DIF) when the data was split either by sex or by trial order. Finally, we used a simulated annealing process [@kirkpatrick1983optimization] to determine the size of the reduced tasl and to select the items. Data collection was pre-registered at: https://osf.io/qzstk. The pre-registered sample size was based on recommendations found in the literature [@morizot2007toward]. The datasets generated during the current study as well as the analysis code are available in the following repository: https://github.com/ccp-eva/vocab.
+
+## Participants
+
+```{r}
+data <- read_csv("../data/clt_clean_data.csv")
+
+demg <- data%>%
+  filter(trial == 1)%>%
+  distinct(subjID, .keep_all = T)%>%
+  summarise(n = n_distinct(subjID),
+            female = sum(sex == "f"),
+            mean_age = mean(age),
+            min_age = min(age),
+            max_age = max(age),)
+```
+Participants were recruited via database of children whose parents volunteered to participate online studies on child development. Parents received and email with a short study description and a personalized link. After one week, parents received a reminder if they had not already taken part in the study. Response rate to invitations was ~50%. The final sample included a total of `r demg%>%pull(n)` children (n = `r demg%>%pull(female)` girls) with a mean age of `r round(demg%>%pull(mean_age),2)` (range: `r round(demg%>%pull(min_age),2)` -- `r round(demg%>%pull(max_age),2)`). Participants were randomly assigned to one of the two task versions. Data was collected between February and May 2022.
+
+## Descriptive results
+
+(ref:figlab2) Descriptive results of the task. A: Proportion of correct responses (with 95% CI) for each participant by age. B: Proportion of correct responses (with 95% CI) for each item by rated age-of-acquisition of the target word. C: Proportion of correct responses (with 95% CI) by trial order (left) and sex (right). 
+
+```{r fig2, include = T, fig.align = "center", fig.cap = "(ref:figlab2)", out.width="100%"}
+knitr::include_graphics("../graphs/data_fig.png")
+```
+
+On a participant level, performance in the full task (52 items) steadily increased with age (Figure \@ref(fig:fig2)A). On an item level, performance was above chance (25%) for all items. Furthermore, the average proportion of correct responses was negatively correlated with age-of-acquisition ratings (Figure \@ref(fig:fig2)B). These descriptive results replicate well-known results in the literature and thereby validate the overall approach. Figure \@ref(fig:fig2)C shows that there were -- on average -- no differences between participants who received order A and order B as well as between female and male participants. This result suggests that these grouping variables are suitable to investigate differential item functioning (see below). 
+
+## Item response modelling
+
+IRT models were implemented in a Bayesian framework in `R` using the `brms` package [@burkner2019bayesian; @burkner2017brms]. Given the binary outcome of the data, we used logistic models to predict the probability of a correct answer based on participant's latent ability and item characteristics (difficulty and discrimination). All models had converging chains and provided a good fit to the data. For details about prior and MCMC settings, please see the analysis script in the associated online repository. We compared models using Bayesian approximate leave-one-out cross-validation [@vehtari2017practical] based on differences in expected log posterior density (ELPD) and the associated standard error (SE).
+
+```{r tab1}
+mc1 <- read_csv("../saves/model_comparison.csv")%>%
+  select(model, elpd_loo,se_elpd_loo, elpd_diff, se_diff)%>%
+  mutate_if(is.numeric, round, 2)%>%
+  mutate(model = recode(model, 
+                        irt1 = "1PL (Rasch)",
+                        irt2 = "2PL",
+                        irt3 = "3PL"))
+
+apa_table(mc1,
+  col.names = c("Model","ELPD", "SE(ELPD)", "$\\Delta$ELPD", "SE($\\Delta$ELPD)"),
+  escape = FALSE,
+  caption = "Model comparison (model parametrization)", 
+  note = "ELPD = expected log posterior density, SE = standard error, ELPD differences are in comparison to the 3PL model. Higher ELPD values indicate better model fit.")
+```
+
+
+As a first step, we compared three models with increasing complexity: a 1PL (Rasch) model which assumed that items differ in difficulty but have the same discrimination parameter (1), a 2PL model which addiotionally allowed items to have different discrimination parameters, and a 3Pl model which further added a guessing parameter of 0.25. Table \@ref(tab:tab1) shows that the 3PL model provided -- by far -- the best fit. For the following item selection procedure, we therefore used the item parameters (difficulty and discrimination) estimated in the 3PL model.
+
+## Differential item functioning
+
+```{r tab2}
+mc2 <- read_csv("../saves/model_comparison_dif.csv")%>%
+  select(model, elpd_loo,se_elpd_loo, elpd_diff, se_diff)%>%
+  mutate_if(is.numeric, round, 2)%>%
+  mutate(model = recode(model, 
+                        irt3_dif_order = "3PL split by order",
+                        irt3_dif_sex = "3PL split by sex",
+                        irt3 = "3PL"))
+
+apa_table(mc2,
+  col.names = c("Model","ELPD", "SE(ELPD)", "$\\Delta$ELPD", "SE($\\Delta$ELPD)"),
+  escape = FALSE,
+  caption = "Model comparison (differential item functioning)", 
+  note = "ELPD = expected log posterior density, SE = standard error, ELPD differences are in comparison to the 3PL model. Higher ELPD values indicate better model fit.")
+```
+
+As a first step in the item selection process, we removed items that showed differential item functioning (DIF). DIF refers to situations in which items show differential characteristics for subgroups that have otherwise the same overall score [@holland2012differential]. To assess DIF for the present task, we followed the procedure suggested by @burkner2019bayesian and fit two extended 3PL models (one for trial order and one for sex) which estimated separate item characteristics for each subgroup. As an overall assessment of DIF we compared these extended models to the basic 3PL. We found no indication for DIF based on trial order but did so for sex (see Table \@ref(tab:tab2)). To decide which items to remove, we computed the difference between mean estimates for male and female participants for each item and excluded those items for which the absolute difference was larger than two standard deviations of all differences. Four items had to be excluded based on this procedure (see Figure \@ref(fig:fig3)).
+
+(ref:figlab3) Differential item functioning. Difference between estimates for female and male participants for the two item parameters. Dashed lines show cut-off points. Red points indicate items that were excluded. 
+
+```{r fig3, include = T, fig.align = "center", fig.cap = "(ref:figlab3)", out.width="50%"}
+knitr::include_graphics("../graphs/dif_fig.png")
+```
+
+## Simulated annealing
+
+The goal of this last step of the item selection process was to select a smaller subset of items that nevertheless allow for precise measurement. The basis for this selection process was a score which we defined to capture three important characteristics that the items of any subset should have. First, items should be equally spaced across the latent ability space. This characteristic ensures that the task is suited for different ability levels and thus for a broader range of ages. We quantified the spread of any given subset as the standard deviation of the distance (in difficulty estimates) between adjacent items. Lower values indicate smaller distances and thus an overall more equal spacing. Second, items should have maximum discrimination. That is, we preferred items that distinguished well between narrowly defined regions of the latent ability. Discrimination parameters were divided by 2 to put them on a scale comparable to the standard deviations of the distances. Third, difficulty estimates should have narrow credible intervals. The idea behind this characteristic was that many of the easier items had very wide credible intervals because most of the participants answered correctly. Of those items we sought to select the ones with more precise difficulty estimates. For scaling purposes, difficulty estimates were divided by 6.
+
+We used simulated annealing [@kirkpatrick1983optimization] to find the optimal items for any given size of the subset. This process ... 
+
+We applied simulated annealing to subsets ranging from 5 to 40 items. For each (optimal) subset we then computed the correlation between performance based on the subset and based on the full task This allowed us to assess how well the subset was able to capture variation between individuals in comparison to the full task. Figure \@ref(fig:fig4)A shows how the correlation between subset and full task increase with an increasing number of items in the subset. The resulting curve leveled-off at around 20 items in that adding additional items to the subset did not incerease the correlation any further. We therefore concluded that 20 items would be the ideal size of the subset. 
+
+When running the simulated annealing procedure for 20 items 100 times, it always returned the same item selection. We therefore chose this subset of items for the reduced task. Figure \@ref(fig:fig4)B shows the item parameters for the selected items and Figure \@ref(fig:fig4)C shows their item characteristic curves.
+
+
+(ref:figlab4) Item selection process. A) Correlation between reduced and full task (52 items). Points show mean correlation based on 100 iterations. Vertical lines show the range of correlations in cases when they differed between iterations. Black lines and points show correlations for the full sample and colored points and lines show correlations by age group. B) Item parameters for the selected 20 items estimated based on the 3PL model. C) Item characteristic curves for all 52 items, with excluded items in grey and selected items in color. 
+
+```{r fig4, include = T, fig.align = "center", fig.cap = "(ref:figlab4)", out.width="100%"}
+knitr::include_graphics("../graphs/item_fig2.png")
+```
+
+# Discussion
+
+
+\newpage
+
+# References
+
+::: {#refs custom-style="Bibliography"}
+:::

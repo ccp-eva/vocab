@@ -134,12 +134,16 @@ data_mpi <- filtered_data%>%
   filter(!is.na(age))%>%
   ungroup()
 
-# filtered_data%>%
-#   filter(trial == 1)%>%
-#   distinct(subjID, .keep_all = T)%>%
-#   left_join(dem)%>%
-#   select(subjID, sex, birth_day, test_day)%>%
-#   write_xlsx("../data/clt_participation_by_date.xlsx")
+old_part <- read_xlsx("../data/participated_06_04_22.xlsx")%>%
+  pull(subjID)
+
+filtered_data%>%
+  filter(trial == 1)%>%
+  filter(!subjID%in%old_part)%>%
+  distinct(subjID, .keep_all = T)%>%
+  left_join(dem)%>%
+  select(subjID, sex, birth_day, test_day)%>%
+  write_xlsx("../data/clt_participation_by_date.xlsx")
 ```
 
 ## ZAS and kischawi
@@ -194,7 +198,10 @@ data <- bind_rows(
 ```
 
 ```{r}
-write_csv(data,"../data/clt_clean_data.csv")
+data%>%
+  filter(age_group != 8, 
+         source == "mpi")%>%
+  write_csv(.,"../data/clt_clean_data.csv")
 ```
 
 

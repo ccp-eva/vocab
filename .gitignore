@@ -81,7 +81,8 @@ data/word_lists/LuniewskaEtAl2019_properties.xlsx
 data/word_lists/clt.csv
 data/word_lists/schroederEtAl2012.xls
 
-
+data/clt_participation_by_date.xlsx
+data/new_words.xlsx
 
 # DO NOT CHANGE THE CONTENT THAT FOLLOWS HERE ...
 #   EXCEPT IF YOU PLAN TO UPDATE THE TEMPLATE

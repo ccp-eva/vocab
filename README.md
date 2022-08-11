@@ -1,25 +1,28 @@
-# Project Title
-> Oneliner about your project 
+## oREV: an Item Response Theory based open receptive vocabulary task for 3 to 8-year-old children
 
-## Abstract
-Paste your Abstract in here.
+------------------------------------------------------------------------
 
-## Publication Links
-- [Journal](https://#)
-- [Preprint](https://#)
-- [OSF](https://#)
-- [Zenodo](https://#)
-- [Figshare](https://#)
+> Project repository associated with the following manuscript
 
-## Repository Structure
-### data
-You can retrieve the data here ...
+------------------------------------------------------------------------
 
-### docs
-Procedures and coding schema can be found here. It is structured like this... 
+* Bohn, M., Eckert, J., Hanus, D., Lugauer, B., Holtmann, J., & Haun, D. (2022). [Probing the foundations of comparative cognition: the structure, stability and predictability of great ape cognition](https://psyarxiv.com/pdt5w). *PsyArXiv*.
 
+### Usage
 
+Link to task (in German): [oREV](https://ccp-odc.eva.mpg.de/orev-demo/)
 
-## Installation Instructions
-lalaliii
+### Structure
 
+```
+.
+├── analysis
+    ├── irt_analysis.Rmd        <-- IRT analysis 
+    ├── item_selection.Rmd      <-- item selection procedure
+    └── visuals.Rmd             <-- reproduce figures in paper
+├── data                        <-- data file
+├── graphs                      <-- figures in paper
+├── paper                       <-- reproducible manuscript file
+└── saves                       <-- saved model output
+
+```

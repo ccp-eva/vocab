@@ -1,0 +1,268 @@
+---
+title: "oREV visuals"
+output: html_document
+---
+```{r setup, include=FALSE}
+library(tidyverse)
+library(ggpubr)
+library(ggthemes)
+library(tidyboot)
+library(readxl)
+library(geomtextpath)
+library(ggridges)
+library(scales)
+```
+
+
+```{r}
+data <- read_csv("../data/clean_data.csv")
+
+all_model_params <- read_csv("../data/model_parameters_3PL.csv")
+
+params_sex <- readRDS("../saves/model_params_irt3_dif_sex.rds")%>%
+  select(-uci, -lci)%>%
+  pivot_wider(names_from = sex, values_from = mode)%>%
+  mutate(sex_dif = f-m)
+
+icc3 <- readRDS("../saves/icc_3PL.rds")
+
+frq_sel_items <- readRDS("../saves/selected_items.rds")
+
+
+sim_size <- readRDS("../saves/sim_size.rds")
+
+sim_size_age <- readRDS("../saves/sim_size_age.rds")
+
+params_joy <- readRDS("../saves/model_params_irt3_draws.rds")
+```
+
+# Data descriptives
+
+## Figure 2
+
+```{r}
+p2 <- data%>%
+  group_by(source,subjID, age)%>%
+  tidyboot_mean(col = correct)
+
+page <- ggplot(p2, aes(x = age, y = mean))+
+  #stat_cor()+
+  geom_hline(yintercept = 0.25, lty = 3, alpha = .75)+
+  #geom_point(alpha = .25)+
+  geom_pointrange(aes(ymin = ci_lower, ymax = ci_upper), alpha = .5, size = .25)+
+  #geom_point( alpha = .75)+
+  geom_smooth(method = "lm", col = "firebrick", alpha = .25)+
+  labs(x = "Participant age", y = "Proportion correct (by participant)")+
+  ylim(0,1)+
+  xlim(3,8)+
+  theme_few()
+```
+
+```{r}
+p1 <- data%>%
+  group_by(targetWord, source, aoa_german_comb, german)%>%
+  tidyboot_mean(col = correct)
+
+paoa <- p1%>%
+ggplot(aes(x = aoa_german_comb, y = mean, col = source))+
+  stat_cor(aes(x = aoa_german_comb, y = mean,label = paste(..r.label..)),inherit.aes = F,r.accuracy = 0.01, cor.coef.name = "r",label.y = 0.85)+
+  geom_hline(yintercept = 0.25, lty = 3, alpha = .75)+
+  geom_pointrange(aes(ymin = ci_lower, ymax = ci_upper), alpha = .75, pch = 1)+
+  #facet_grid(~measure)+
+  #geom_textpath(aes(label = german), hjust = -.2) +
+  #geom_point( alpha = .75)+
+  geom_smooth(method = "lm", col = "firebrick", alpha = .25)+
+  scale_color_colorblind(name = "")+
+  labs(x = "Age of acquisition (adult rated)", y = "Proportion correct (by item)")+
+  ylim(0,1)+
+  theme_few()+
+  theme(legend.position = c(0.2,0.5))
+```
+
+```{r}
+sex_dif_id <- data%>%
+  group_by(subjID,sex)%>%
+  summarise(mean = mean(correct))
+
+order_dif_id <- data%>%
+  group_by(subjID,order)%>%
+  summarise(mean = mean(correct))
+
+dif_id <- bind_rows(
+  sex_dif_id%>%rename(comparison = sex)%>%mutate(type = "by sex"),
+  order_dif_id%>%rename(comparison = order)%>%mutate(type = "by order")
+)%>%
+  mutate(comparison = recode(comparison,
+                             m = "Male",
+                             f = "Female",
+                             orderA = "Order A", 
+                             orderB = "Order B",))
+
+
+
+sex_dif <- data%>%
+  group_by(sex)%>%
+  tidyboot_mean(col = correct)
+
+order_dif <- data%>%
+  group_by(order)%>%
+  tidyboot_mean(col = correct)
+
+dif <- bind_rows(
+  sex_dif%>%rename(comparison = sex)%>%mutate(type = "by sex"),
+  order_dif%>%rename(comparison = order)%>%mutate(type = "by order")
+)%>%
+  mutate(comparison = recode(comparison,
+                             m = "Male",
+                             f = "Female",
+                             orderA = "Order A", 
+                             orderB = "Order B",))
+
+```
+
+```{r}
+pdif <- ggplot(dif, aes(x = comparison, y = mean))+
+  geom_dotplot(data = dif_id, aes(x = comparison, y = mean), binaxis='y', stackdir='center',
+               stackratio=1.5, dotsize=.2, alpha = .2)+
+  geom_bar(stat = "identity", alpha = .25)+
+  geom_pointrange(aes(ymin = ci_lower, ymax = ci_upper), alpha = .75)+
+  facet_grid(~type, scales = "free_x" )+
+  scale_y_continuous(limits=c(0.5,1),oob = rescale_none)+
+  labs(y = "Proportion correct (by participant)", x = "")+
+  theme_few()
+```
+
+```{r}
+ggarrange(page, paoa,pdif, nrow = 1, labels = c("A","B", "C"), widths = c(1,1,1))
+```
+
+```{r}
+ggsave("../graphs/data_fig.png", width = 12, height = 3, scale = 1.25, bg = "white")
+```
+
+## Figure 3
+
+```{r}
+params_sex_p <- params_sex%>%
+  mutate(nlpar = factor(nlpar, levels = c("Easiness", "Discrimination"), labels = c("Difficulty", "Discrimination")))%>%
+  group_by(nlpar)%>%
+  mutate(sd = sd(sex_dif), 
+         cut_low = mean(sex_dif)-2*sd,
+         cut_high = mean(sex_dif)+2*sd)%>%
+  mutate(ex = ifelse(sex_dif >cut_high | sex_dif < cut_low, "out", "in"))
+
+ggplot(params_sex_p, aes(x = sex_dif, label = item, y = reorder(item, abs(sex_dif)), col = ex))+
+  geom_vline(aes(xintercept = cut_low), lty = 3, alpha = .75)+
+  geom_vline(aes(xintercept = cut_high), lty = 3, alpha = .75)+
+  geom_point(alpha = .5)+
+  scale_color_manual(values = c("black", "firebrick"))+
+  guides(col = "none")+
+  labs(x = "Difference between estimates (female - male)", y = "Target word")+
+  facet_grid(~nlpar)+
+  theme_few()
+```
+```{r}
+ggsave("../graphs/dif_fig.png", width = 4, height = 6, scale = 1.25, bg = "white")
+```
+
+## Figure 4
+
+```{r}
+picc <- icc3 %>% 
+  mutate(select = ifelse(item %in% frq_sel_items,"yes", "no"),
+         pos = as.numeric(as.factor(item)))
+
+
+iccp <- ggplot(picc%>%filter(select == "yes"), aes(x = theta, y = p,group = item)) +
+  #geom_line(alpha = .5) +
+  geom_line(data = picc%>%filter(select == "no"), aes(x = theta, y = p,group = item), col = "grey", alpha = .5)+
+  #geom_line(aes(x = theta, y = p,group = item, col = item))+
+  geom_textline(aes(label = item, col = item),  gap = T, size = 3) +
+  #geom_texthline(yintercept = 0.25, lty = 3, alpha = .75, label = "guessing",hjust = 0.8)+
+  geom_hline(yintercept = 0.25, lty = 3, alpha = .75)+
+  #facet_wrap(~group)+
+  guides(col = F)+
+  scale_color_viridis_d()+
+  labs(#title = "ICCs for selected items",
+       x = expression(theta~('ability on the logit scale')),
+       y = expression(italic(p)(y==1))) +
+  ylim(0,1)+
+  theme_few()
+```
+
+
+```{r}
+pss <- sim_size%>%
+  group_by(size)%>%
+  summarise(mean_cor = mean(cor),
+         min = min(cor),
+         max = max(cor))
+
+pssa <- sim_size_age%>%
+  group_by(size, age_group)%>%
+  summarise(mean_cor = mean(cor),
+         min = min(cor),
+         max = max(cor))
+
+
+psel <- ggplot()+
+  geom_vline(xintercept = 20, alpha = .5, col = "#31493C")+
+  geom_pointrange(data = pssa,aes(x = size, y = mean_cor,ymin=min, max = max, col = factor(age_group)),pch = 1, alpha = .5)+
+  geom_line(data = pssa, aes(group = factor(age_group), x = size, y = mean_cor, col = factor(age_group)), alpha = .5)+
+  geom_pointrange(data = pss,aes(x = size, y = mean_cor,ymin=min, max = max),pch = 1)+
+  geom_line(data = pss, aes(group = 1, x = size, y = mean_cor))+
+  scale_linetype(name = "Run")+
+  scale_x_continuous(breaks = c(5,10,15,20,25,30,35,40))+
+  scale_color_ptol(name = "Age group")+
+  theme_few()+
+  ylim(0.6, 1)+
+  theme(legend.position = c(.8,.4))+
+  labs(x = "No. of items in subset", y = "Correlation with full task")
+```
+
+```{r}
+pparam <- all_model_params%>%
+  filter(item %in% frq_sel_items)%>%
+  mutate(Estimate = ifelse(nlpar == "Easiness", -Estimate, Estimate),
+         Q2.5 = ifelse(nlpar == "Easiness", -Q2.5, Q2.5),
+         Q97.5 = ifelse(nlpar == "Easiness", -Q97.5, Q97.5),
+         nlpar = factor(nlpar, levels = c("Easiness", "Discrimination"), labels = c("Difficulty", "Discrimination")))%>%
+  ggplot(aes(reorder(item, Estimate), col = item, Estimate, ymin = Q2.5, ymax = Q97.5)) +
+	facet_wrap(~nlpar, scales = "free_x") +
+  scale_color_viridis_d()+
+	geom_pointrange(pch = 1) +
+	coord_flip() +
+  guides(col = F)+
+	labs(x = "Target word")+
+  theme_few()
+
+# pparam2 <- params_joy%>%
+#   left_join(all_model_params)%>%
+#   filter(item %in% frq_sel_items)%>%
+#     mutate(Estimate = ifelse(nlpar == "Easiness", -Estimate, Estimate),
+#          nlpar = factor(nlpar, levels = c("Easiness", "Discrimination"), labels = c("Difficulty", "Discrimination")))%>%
+#   ggplot( aes(y = reorder(item, Estimate), x = val, fill = item))+
+#   geom_density_ridges(size = 0.2,scale = 4, alpha = .5)+
+#   facet_grid(~nlpar, scales = "free_x")+
+#   labs(y = "Target word", x = "Estimate")+
+#   scale_fill_viridis_d()+
+#   guides(fill = F)+
+#   theme_minimal()
+```
+
+```{r}
+# ggarrange(
+#           ggarrange(psel,pparam2, ncol = 1, labels = c("A","B"), heights = c(1,1.2)),iccp,
+#           widths = c(1,1.5), labels = c("","C"))
+
+ggarrange(
+          ggarrange(psel,pparam, ncol = 1, labels = c("A","B"), heights = c(1,1)),iccp,
+          widths = c(1,1.5), labels = c("","C"))
+```
+
+
+```{r}
+ggsave("../graphs/item_fig2.png", width = 12, height = 5, scale = 1.25, bg = "white")
+```
+
+

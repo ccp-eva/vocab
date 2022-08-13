@@ -36,7 +36,6 @@ hdi_lower<- function(s){
 
 ```{r}
 data <- read_csv("../data/clean_data.csv")
-
 ```
 
 # IRT models

@@ -6,7 +6,7 @@
 
 ------------------------------------------------------------------------
 
-* Bohn, M., Prein, J., XXX.X., & Gagarina, N. (2022). [oREV: an Item Response Theory based open receptive vocabulary task for 3 to 8-year-old children](https://psyarxiv.com/pdt5w). *PsyArXiv*.
+* Bohn, M., Prein, J., Delikaya, B., Haun, D. B. M., & Gagarina, N. (2022). [oREV: an Item Response Theory based open receptive vocabulary task for 3 to 8-year-old children](https://psyarxiv.com/pdt5w). *PsyArXiv*.
 
 ### Usage
 

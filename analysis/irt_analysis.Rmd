@@ -926,8 +926,11 @@ params%>%left_join(coefs2PL)%>%
 ```{r}
 frq_sel_items <- readRDS("../saves/selected_items.rds")
 
+rasch_selected_items <- readRDS("../saves/rasch_selected_items.rds")
+
+
 irt_dat_sel <- irt_dat%>%
-  filter(targetWord %in% frq_sel_items)
+  filter(targetWord %in% rasch_selected_items)
 ```
 
 ## 1PL model

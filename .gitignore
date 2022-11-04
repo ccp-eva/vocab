@@ -21,6 +21,9 @@ analysis/trial_sequence.Rmd
 analysis/word_lists.Rmd
 
 
+data/full_word_list_partental_questionnaire.xlsx
+data/wonder_data.json
+
 data/clt_raw_data/
 data/clt_raw_data_zas/
 data/clt_reminder*
@@ -83,6 +86,8 @@ data/word_lists/schroederEtAl2012.xls
 
 data/clt_participation_by_date.xlsx
 data/new_words.xlsx
+
+paper/orev cover letter.pdf
 
 # DO NOT CHANGE THE CONTENT THAT FOLLOWS HERE ...
 #   EXCEPT IF YOU PLAN TO UPDATE THE TEMPLATE

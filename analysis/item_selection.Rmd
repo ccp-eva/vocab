@@ -7,10 +7,29 @@ output: html_document
 library(tidyverse)
 library(ggpubr)
 library(ggthemes)
+library(tidybayes)
+
+estimate_mode <- function(s) {
+  d <- density(s)
+  return(d$x[which.max(d$y)])
+}
+
+hdi_upper<- function(s){
+  m <- HPDinterval(mcmc(s))
+  return(m["var1","upper"])
+}
+
+hdi_lower<- function(s){
+  m <- HPDinterval(mcmc(s))
+  return(m["var1","lower"])
+}
 ```
 
 ```{r}
 data <- read_csv("../data/clean_data.csv")
+
+irt_dat <- data%>%
+  select(subjID, targetWord, correct, order, sex, aoa_german_comb)
 
 all_model_params <- read_csv("../data/model_parameters_3PL.csv")
 
@@ -24,8 +43,9 @@ params_sex <- readRDS("../saves/model_params_irt3_dif_sex.rds")%>%
 #   pivot_wider(names_from = order, values_from = mode)%>%
 #   mutate(order_dif = A-B)
 ```
+# Item selection based on 3PL model
 
-# Differential item functioning
+## Differential item functioning
 
 ```{r}
 # exclude items based on differential item functioning
@@ -537,3 +557,55 @@ model_params%>%
 	labs(x = "Item")+
   theme_minimal()
 ```
+
+# Item selection based on Rasch Model 
+
+```{r}
+irt1 <- readRDS("../saves/irt1.rds")
+
+rasch_fit <- irt_dat%>%
+  select(-order, -sex)%>%
+  filter(#targetWord %in% c("door", "jaguar","zucchini"),
+         #subjID %in% c("15X7mwV1", "39tVizn3", "479FefBH")
+         )%>%
+  add_epred_draws(irt1, re_formula = ~(1 | targetWord) + (1 | subjID), ndraws = 5000)%>%
+  mutate(zvi = (correct - .epred)/(.epred*(1-.epred))^0.5)%>%
+  group_by(targetWord,aoa_german_comb, .draw)%>%
+  summarise(outfit = sum(zvi^2)/length(unique(subjID)),
+            infit = (sum(zvi^2*(.epred*(1-.epred)))/sum(.epred*(1-.epred))))
+
+
+
+rasch_fit_mode <- rasch_fit%>%
+  pivot_longer(names_to = "fit_index", values_to = "value", cols = c(outfit, infit))%>%
+  group_by(targetWord, fit_index)%>%
+  summarise(mode = estimate_mode(value),
+            lci = hdi_lower(value),
+            uci = hdi_upper(value))
+  
+
+rasch_sel_items <- rasch_fit_mode%>%
+  select(-lci, -uci)%>%
+  pivot_wider(names_from = fit_index, values_from = mode)%>%
+  filter(0.5 < infit & 1.5 > infit,
+         0.5 < outfit & 1.5 > outfit)%>%
+  pull(targetWord)
+
+
+saveRDS(rasch_sel_items, "../saves/rasch_selected_items.rds")
+```
+
+```{r}
+rasch_fit%>%
+  pivot_longer(names_to = "fit_index", values_to = "value", cols = c(outfit, infit))%>%
+  ggplot(. , aes(y = fct_reorder(targetWord, aoa_german_comb), x = value, fill = fit_index, col = fit_index))+
+  geom_vline(xintercept = c(0.7, 1.3), lty = 3, alpha = .5)+
+  geom_vline(xintercept = 1, lty = 1, alpha = .5, col = "darkgreen")+
+  stat_halfeye(alpha = .75, .width = c(0.66, 0.95))+
+  scale_fill_colorblind()+
+  scale_color_colorblind()+
+  #facet_grid(~fit_index)+
+  xlim(0,10)+
+  theme_bw()
+```
+

@@ -1019,6 +1019,55 @@ mc_dif_rasch <- loo_compare(irt1_sel, irt1_dif_sex_sel, irt1_dif_order_sel)%>%as
 write_csv(mc_dif_rasch, "../saves/model_comparison_dif_rasch_sex.csv")
 ```
 
+```{r}
+dif_sex <- as_draws_df(irt1_dif_sex_sel)%>%
+  select(b_Intercept, starts_with("r_targetWord"))%>%
+  mutate(iter = 1:n()) %>%
+  pivot_longer(starts_with("r_targetWord")) %>%
+  mutate(name = str_remove(name, pattern = "r_targetWord"),
+         name = str_remove_all(name, pattern = "\\[|\\]"))%>%
+  separate(name, into = c("item", "sex"), sep = "\\,")%>%
+  mutate(sex = str_remove(sex, pattern = "sex"),
+         val = b_Intercept + value)%>%
+  group_by(item, sex)%>%
+  summarise(mode = estimate_mode(val),
+            uci = hdi_upper(val),
+            lci = hdi_lower(val))%>%
+  left_join(aoa%>%rename(item = targetWord))
+
+saveRDS(dif_sex, "../saves/model_params_irt1_dif_sex.rds")
+
+dif_sex <- readRDS("../saves/model_params_irt1_dif_sex.rds")
+
+ggplot(dif_sex,aes(reorder(item, -aoa_german_comb), mode, ymin = lci, ymax = uci)) +
+	geom_pointrange(aes(col = sex), position = position_dodge(width = .5)) +
+	coord_flip() +
+  scale_color_colorblind(labels = c("male","female"))+
+	labs(x = "Item")+
+  theme_minimal()
+```
+
+```{r}
+params_sex_p <- dif_sex%>%
+  select(-uci, -lci)%>%
+  pivot_wider(names_from = sex, values_from = mode)%>%
+  mutate(sex_dif = f - m)%>%
+  ungroup()%>%
+  mutate(sd = sd(sex_dif), 
+         cut_low = mean(sex_dif)-2*sd,
+         cut_high = mean(sex_dif)+2*sd)%>%
+  mutate(ex = ifelse(sex_dif >cut_high | sex_dif < cut_low, "out", "in"))
+
+ggplot(params_sex_p, aes(x = sex_dif, label = item, y = reorder(item, abs(sex_dif)), col = ex))+
+  geom_vline(aes(xintercept = cut_low), lty = 3, alpha = .75)+
+  geom_vline(aes(xintercept = cut_high), lty = 3, alpha = .75)+
+  geom_point(alpha = .5)+
+  scale_color_manual(values = c("black", "firebrick"))+
+  guides(col = "none")+
+  labs(x = "Difference between estimates (female - male)", y = "Target word")+
+  theme_few()
+```
+
 ## 1PL + guessing model
 
 ```{r}

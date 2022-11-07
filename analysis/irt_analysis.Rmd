@@ -174,34 +174,6 @@ tic1%>%
 ```
 
 
-### Differential Item Functioning
-
-#### Sex
-
-```{r}
-irt1_dif_sex <- brm(
-  data = irt_dat,
-  family = brmsfamily("bernoulli", "logit"),
-  correct ~ 1 + (0+ sex | targetWord) + (1 | subjID),
-  prior = prior_1pl,
-  control = list(adapt_delta = 0.95, max_treedepth = 12),
-  cores = 6,
-  chains = 6,
-  iter = 6000
-)%>%add_criterion(c("loo","waic")) 
-
-saveRDS(irt1_dif_sex, "../saves/irt1_dif_sex.rds")
-
-irt1_dif_sex <- readRDS("../saves/irt1_dif_sex.rds")
-
-```
-
-```{r}
-mc2 <- loo_compare(irt3, irt3_dif_sex)%>%as_tibble(rownames = "model")
-
-write_csv(mc2, "../saves/model_comparison_dif_sex.csv")
-```
-
 ## 1PL + guessing model
 
 ```{r}
@@ -996,6 +968,55 @@ irt1_sel <- brm(
 saveRDS(irt1_sel, "../saves/irt1_sel.rds")
 
 irt1_sel <- readRDS("../saves/irt1_sel.rds")
+```
+
+
+### Differential Item Functioning
+
+#### Sex
+
+```{r}
+irt1_dif_sex_sel <- brm(
+  data = irt_dat_sel,
+  family = brmsfamily("bernoulli", "logit"),
+  correct ~ 1 + (0+ sex | targetWord) + (1 | subjID),
+  prior = prior_1pl,
+  control = list(adapt_delta = 0.95, max_treedepth = 12),
+  cores = 6,
+  chains = 6,
+  iter = 6000
+)%>%add_criterion(c("loo","waic")) 
+
+saveRDS(irt1_dif_sex_sel, "../saves/irt1_dif_sex_sel.rds")
+
+irt1_dif_sex_sel<- readRDS("../saves/irt1_dif_sex_sel.rds")
+
+```
+
+#### Order
+
+```{r}
+irt1_dif_order_sel <- brm(
+  data = irt_dat_sel,
+  family = brmsfamily("bernoulli", "logit"),
+  correct ~ 1 + (0+ order | targetWord) + (1 | subjID),
+  prior = prior_1pl,
+  control = list(adapt_delta = 0.95, max_treedepth = 12),
+  cores = 6,
+  chains = 6,
+  iter = 6000
+)%>%add_criterion(c("loo","waic")) 
+
+saveRDS(irt1_dif_order_sel, "../saves/irt1_dif_order_sel.rds")
+
+irt1_dif_order_sel<- readRDS("../saves/irt1_dif_order_sel.rds")
+
+```
+
+```{r}
+mc_dif_rasch <- loo_compare(irt1_sel, irt1_dif_sex_sel, irt1_dif_order_sel)%>%as_tibble(rownames = "model")
+
+write_csv(mc_dif_rasch, "../saves/model_comparison_dif_rasch_sex.csv")
 ```
 
 ## 1PL + guessing model

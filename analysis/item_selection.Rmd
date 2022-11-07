@@ -950,6 +950,16 @@ item_sel_rasch%>%
   labs(x = "Item", y = "Proportion selected")+
   theme_minimal()+
   theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+
+frq_sel_items_rasch <- item_sel_rasch%>%
+  group_by(targetWord)%>%
+  summarise(n = n()/max(iter))%>%
+  arrange(-n)%>%
+  slice(1:20)%>%
+  pull(targetWord)
+
+saveRDS(frq_sel_items_rasch, "../saves/selected_items_rasch.rds")
 ```
 
 ## ICC selected

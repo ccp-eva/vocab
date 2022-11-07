@@ -929,7 +929,7 @@ item_sel_rasch <- tibble()
 
 for (i in 1:100) {
   
-   sim <- simulated_annealing(20)
+   sim <- simulated_annealing(25)
   
    sel <- items[unlist(sim$best_subset) == TRUE]
   
@@ -990,37 +990,4 @@ icc1_sel %>%
        x = expression(theta~('ability on the logit scale')),
        y = expression(italic(p)(y==1))) +
   theme_minimal()
-```
-
-
-## Rasch model fir for selected items
-
-```{r}
-irt1_sel <- readRDS("../saves/irt1_sel.rds")
-
-rasch_fit_sel <- irt_dat%>%
-  select(-order, -sex)%>%
-  filter(targetWord %in% rasch_sel_items,
-         #subjID %in% c("15X7mwV1", "39tVizn3", "479FefBH")
-         )%>%
-  add_epred_draws(irt1_sel, re_formula = ~(1 | targetWord) + (1 | subjID), ndraws = 5000)%>%
-  mutate(zvi = (correct - .epred)/(.epred*(1-.epred))^0.5)%>%
-  group_by(targetWord,aoa_german_comb, .draw)%>%
-  summarise(outfit = sum(zvi^2)/length(unique(subjID)),
-            infit = (sum(zvi^2*(.epred*(1-.epred)))/sum(.epred*(1-.epred))))
-```
-
-```{r}
-rasch_fit_sel%>%
-  pivot_longer(names_to = "fit_index", values_to = "value", cols = c(outfit, infit))%>%
-  ggplot(. , aes(y = fct_reorder(targetWord, aoa_german_comb), x = value, fill = fit_index, col = fit_index))+
-  geom_vline(xintercept = c(0.7, 1.3), lty = 3, alpha = .5)+
-  geom_vline(xintercept = 1, lty = 1, alpha = .5, col = "darkgreen")+
-  stat_halfeye(alpha = .75, .width = c(0.66, 0.95))+
-  scale_fill_colorblind()+
-  scale_color_colorblind()+
-  labs(x = "Index value", y = "Target word (sorted by rated age of acquisition)")+
-  #facet_grid(~fit_index)+
-  xlim(0,10)+
-  theme_bw()
 ```

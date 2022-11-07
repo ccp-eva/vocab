@@ -43,6 +43,8 @@ data <- read_csv("../data/clean_data.csv")
 ```{r}
 irt_dat <- data%>%
   select(subjID, targetWord, correct, order, sex)
+
+aoa <- data%>%distinct(targetWord, .keep_all = T)%>%select(targetWord, aoa_german_comb)
 ```
 
 ## 1PL model
@@ -169,6 +171,35 @@ tic1%>%
        x = expression(theta~('ability on the logit scale')),
        y = "Information") +
   theme_minimal()
+```
+
+
+### Differential Item Functioning
+
+#### Sex
+
+```{r}
+irt1_dif_sex <- brm(
+  data = irt_dat,
+  family = brmsfamily("bernoulli", "logit"),
+  correct ~ 1 + (0+ sex | targetWord) + (1 | subjID),
+  prior = prior_1pl,
+  control = list(adapt_delta = 0.95, max_treedepth = 12),
+  cores = 6,
+  chains = 6,
+  iter = 6000
+)%>%add_criterion(c("loo","waic")) 
+
+saveRDS(irt1_dif_sex, "../saves/irt1_dif_sex.rds")
+
+irt1_dif_sex <- readRDS("../saves/irt1_dif_sex.rds")
+
+```
+
+```{r}
+mc2 <- loo_compare(irt3, irt3_dif_sex)%>%as_tibble(rownames = "model")
+
+write_csv(mc2, "../saves/model_comparison_dif_sex.csv")
 ```
 
 ## 1PL + guessing model
@@ -931,6 +962,11 @@ rasch_selected_items <- readRDS("../saves/rasch_selected_items.rds")
 
 irt_dat_sel <- irt_dat%>%
   filter(targetWord %in% rasch_selected_items)
+
+
+frq_sel_items[!frq_sel_items %in% rasch_selected_items]
+
+
 ```
 
 ## 1PL model

@@ -1229,15 +1229,15 @@ irt3_sel <- readRDS("../saves/irt3_sel.rds")
 ```{r}
 loo_compare(irt1_guess_sel, irt3_sel)%>%as_tibble(rownames = "model")
 
-brms::bayes_R2(irt3_sel)
+brms::bayes_R2(irt1_guess)
 ```
 
 ## Reliability
 
 ```{r}
 rel_dat <- irt_dat%>%
-  select(-sex, -order, -aoa_german_comb)%>%
-  filter(targetWord %in% rasch_selected_items)%>%
+  select(-sex, -order)%>%
+  filter(targetWord %in% sel_items_rasch)%>%
   group_by(subjID)%>%
   distinct(targetWord, .keep_all = T)%>%
   pivot_wider(names_from = targetWord, values_from = correct)%>%

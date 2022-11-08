@@ -499,7 +499,7 @@ frq_sel_items <- item_sel%>%
   group_by(targetWord)%>%
   summarise(n = n()/max(iter))%>%
   arrange(-n)%>%
-  slice(1:20)%>%
+  slice(1:22)%>%
   pull(targetWord)
 
 saveRDS(frq_sel_items, "../saves/selected_items.rds")
@@ -835,7 +835,7 @@ simulated_annealing_rasch <- function(k, cooling_ratio=0.999, reset_thresh=1000,
 ```
 
 ```{r, message=F, warning=F, comment=F}
-sim_rasch <- simulated_annealing_rasch(20)
+sim_rasch <- simulated_annealing_rasch(22)
 
 sel_items_rasch <- items[unlist(sim_rasch$best_subset) == TRUE]
 
@@ -940,9 +940,9 @@ sim_size_rasch%>%
 ```{r}
 item_sel_rasch <- tibble()
 
-for (i in 1:100) {
+for (i in 1:20) {
   
-   sim <- simulated_annealing(25)
+   sim <- simulated_annealing(22)
   
    sel <- items[unlist(sim$best_subset) == TRUE]
   
@@ -969,7 +969,7 @@ frq_sel_items_rasch <- item_sel_rasch%>%
   group_by(targetWord)%>%
   summarise(n = n()/max(iter))%>%
   arrange(-n)%>%
-  slice(1:20)%>%
+  slice(1:22)%>%
   pull(targetWord)
 
 saveRDS(frq_sel_items_rasch, "../saves/selected_items_rasch.rds")
@@ -985,7 +985,7 @@ rasch_fit%>%
   geom_vline(xintercept = c(0.5, 1.5), lty = 2, alpha = .5)+
   geom_vline(xintercept = c(0.7, 1.3), lty = 3, alpha = .5)+
   geom_vline(xintercept = 1, lty = 1, alpha = .5, col = "darkgreen")+
-  stat_halfeye(alpha = .75, .width = c(0.66, 0.95))+
+  stat_halfeye(alpha = .75, .width = c(0.66, 0.95), position = position_dodge(width = 0.5))+
   scale_fill_colorblind()+
   scale_color_colorblind()+
   labs(x = "Index value", y = "Target word (sorted by rated age of acquisition)")+
@@ -997,15 +997,15 @@ rasch_fit%>%
 ## ICC selected
 
 ```{r}
-icc1_sel <- posterior_samples(irt1)%>% 
-  select(b_Intercept, starts_with("r_targetWord"))%>%
+icc1_sel <- posterior_samples(irt1_guess)%>% 
+  select(b_eta_Intercept, starts_with("r_targetWord"))%>%
   mutate(iter = 1:n()) %>% 
   pivot_longer(starts_with("r_targetWord"), names_to = "item", values_to = "xi") %>%
   mutate(item = str_extract(string = item, pattern = "(?<=\\[).*(?=,Intercept\\])"))%>%
   filter(item %in% sel_items_rasch)%>%
-  expand(nesting(iter, b_Intercept, item, xi),
+  expand(nesting(iter, b_eta_Intercept, item, xi),
          theta = seq(from = -6, to = 6, length.out = 100)) %>% 
-  mutate(p = inv_logit_scaled(b_Intercept + xi + theta)) %>% 
+  mutate(p = 0.25 + 0.75*inv_logit_scaled((b_eta_Intercept + theta + xi))) %>%  
   group_by(theta, item) %>% 
   summarise(p = mean(p))%>%
   left_join(aoa%>%rename(item = targetWord))
@@ -1017,9 +1017,11 @@ icc1_sel %>%
   geom_line() +
   #facet_wrap(~group)+
   #guides(col = F)+
+  geom_hline(yintercept = 0.25, lty = 3, alpha = .75)+
   scale_color_viridis_c(name = "AoA") +
   labs(title = "ICCs for the 1PL",
        x = expression(theta~('ability on the logit scale')),
        y = expression(italic(p)(y==1))) +
+  ylim(0,1)+
   theme_minimal()
 ```

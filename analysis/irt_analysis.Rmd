@@ -1064,8 +1064,12 @@ ggplot(params_sex_p, aes(x = sex_dif, label = item, y = reorder(item, abs(sex_di
   geom_point(alpha = .5)+
   scale_color_manual(values = c("black", "firebrick"))+
   guides(col = "none")+
-  labs(x = "Difference between estimates (female - male)", y = "Target word")+
+  labs(x = "DIF: Difference between estimates (female - male)", y = "Target word")+
   theme_few()
+```
+
+```{r}
+ggsave("../graphs/dif.png", height = 12, width = 8, scale = 1)
 ```
 
 ## 1PL + guessing model

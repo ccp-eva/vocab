@@ -565,12 +565,19 @@ model_params%>%
 ```{r}
 irt1 <- readRDS("../saves/irt1.rds")
 
+irt1_guess <- readRDS("../saves/irt1_guess.rds")
+```
+
+
+```{r}
+
 rasch_fit <- irt_dat%>%
+  left_join(aoa)%>%
   select(-order, -sex)%>%
   filter(#targetWord %in% c("door", "jaguar","zucchini"),
          #subjID %in% c("15X7mwV1", "39tVizn3", "479FefBH")
          )%>%
-  add_epred_draws(irt1, re_formula = ~(1 | targetWord) + (1 | subjID), ndraws = 5000)%>%
+  add_epred_draws(irt1_guess, re_formula = ~(1 | targetWord) + (1 | subjID), ndraws = 5000)%>%
   mutate(zvi = (correct - .epred)/(.epred*(1-.epred))^0.5)%>%
   group_by(targetWord,aoa_german_comb, .draw)%>%
   summarise(outfit = sum(zvi^2)/length(unique(subjID)),

@@ -208,6 +208,13 @@ saveRDS(irt1_guess, "../saves/irt1_guess.rds")
 irt1_guess <- readRDS("../saves/irt1_guess.rds")
 ```
 
+## 1PL model comparison
+```{r}
+loo_compare(irt1_guess, irt3_sel)%>%as_tibble(rownames = "model")
+
+brms::bayes_R2(irt3_sel)
+```
+
 ## 2PL model
 
 ### Model
@@ -1028,7 +1035,7 @@ dif_sex <- as_draws_df(irt1_dif_sex_sel)%>%
          name = str_remove_all(name, pattern = "\\[|\\]"))%>%
   separate(name, into = c("item", "sex"), sep = "\\,")%>%
   mutate(sex = str_remove(sex, pattern = "sex"),
-         val = b_Intercept + value)%>%
+         val =  value)%>%
   group_by(item, sex)%>%
   summarise(mode = estimate_mode(val),
             uci = hdi_upper(val),
@@ -1039,12 +1046,37 @@ saveRDS(dif_sex, "../saves/model_params_irt1_dif_sex.rds")
 
 dif_sex <- readRDS("../saves/model_params_irt1_dif_sex.rds")
 
-ggplot(dif_sex,aes(reorder(item, -aoa_german_comb), mode, ymin = lci, ymax = uci)) +
-	geom_pointrange(aes(col = sex), position = position_dodge(width = .5)) +
+ggplot(dif_sex,aes(x = reorder(item, -aoa_german_comb))) +
+	geom_point(aes(col = sex, y = lci), position = position_dodge(width = .5)) +
+  geom_point(aes(col = sex, y = uci), position = position_dodge(width = .5)) +
+  geom_linerange(aes(col = sex, ymin = lci + 0.1, ymax = uci-0.1), position = position_dodge(width = .5), alpha = .5) +
 	coord_flip() +
-  scale_color_colorblind(labels = c("male","female"))+
-	labs(x = "Item")+
-  theme_minimal()
+  scale_color_colorblind(labels = c("male","female"), name = "Group")+
+	labs(x = "Item", y = "Easiness estimate")+
+  theme_few()
+```
+
+```{r}
+ggsave("../graphs/dif_ci.png", height = 10, width = 10, scale = 1)
+```
+
+```{r}
+dif_sex%>%
+  pivot_wider(names_from = sex, values_from = c(mode,uci,lci))%>%
+  ggplot(., aes(x = mode_f, y = mode_m))+
+  geom_abline(intercept = 0, slope = 1, lty = 1, alpha = .75)+
+  geom_point(pch = 1, size = 2, stroke  = 1, aes(col = factor(aoa_german_comb)))+
+  geom_linerange(aes(ymin = lci_m, ymax = uci_m),  alpha = .25, lty = 1)+
+  geom_linerange(aes(xmin = lci_f, xmax = uci_f),  alpha = .25, lty = 1)+
+  geom_text(aes(label = item, x = uci_f +0.2))+
+  labs(x = "Group: female", y = "Group: male")+
+  scale_color_viridis_d()+
+  guides(col = F)+
+  theme_few()
+  
+```
+```{r}
+ggsave("../graphs/dif_cor.png", height = 8, width = 8, scale = 1.2)
 ```
 
 ```{r}
@@ -1147,5 +1179,20 @@ irt3_sel <- readRDS("../saves/irt3_sel.rds")
 loo_compare(irt1_guess_sel, irt3_sel)%>%as_tibble(rownames = "model")
 
 brms::bayes_R2(irt3_sel)
+```
+
+## Reliability
+
+```{r}
+rel_dat <- irt_dat%>%
+  select(-sex, -order, -aoa_german_comb)%>%
+  filter(targetWord %in% rasch_selected_items)%>%
+  group_by(subjID)%>%
+  distinct(targetWord, .keep_all = T)%>%
+  pivot_wider(names_from = targetWord, values_from = correct)%>%
+  ungroup()%>%
+  select(-subjID)
+
+kr20(rel_dat, hit = 1)
 ```
 

@@ -600,17 +600,23 @@ saveRDS(rasch_sel_items, "../saves/rasch_selected_items.rds")
 ```{r}
 rasch_fit%>%
   pivot_longer(names_to = "fit_index", values_to = "value", cols = c(outfit, infit))%>%
-  ggplot(. , aes(y = fct_reorder(targetWord, aoa_german_comb), x = value, fill = fit_index, col = fit_index))+
+  ggplot(. , aes(y = fct_reorder(targetWord, aoa_german_comb), x = value, col = fit_index))+
   geom_vline(xintercept = c(0.7, 1.3), lty = 3, alpha = .5)+
+  geom_vline(xintercept = c(0.5, 1.5), lty = 2, alpha = .5)+
   geom_vline(xintercept = 1, lty = 1, alpha = .5, col = "darkgreen")+
-  stat_halfeye(alpha = .75, .width = c(0.66, 0.95))+
+  stat_halfeye(alpha = .75, .width = c(0.66, 0.95), position = position_dodge())+
   scale_fill_colorblind()+
-  scale_color_colorblind()+
-  labs(x = "Index value", y = "Target word (sorted by rated age of acquisition)")+
+  scale_color_colorblind(name = "Fit index")+
+    labs(x = "Index value", y = "Target word (sorted by rated age of acquisition)")+
   #facet_grid(~fit_index)+
-  xlim(0,10)+
-  theme_bw()
+  scale_x_continuous(breaks = c(0,0.5, 07, 1, 1.3, 1.5), labels = c(0,0.5, 07, 1, 1.3, 1.5), limits = c(0,7))+
+  theme_bw()+
+  theme(legend.position = c(0.8,0.8))
 ```
+```{r}
+ggsave("../graphs/in_outfit.png", height = 12, width = 10, scale = 1)
+```
+
 
 ```{r}
 coef_rasch <- coef(irt1)
@@ -960,6 +966,25 @@ frq_sel_items_rasch <- item_sel_rasch%>%
   pull(targetWord)
 
 saveRDS(frq_sel_items_rasch, "../saves/selected_items_rasch.rds")
+```
+
+## Fit indices selected
+
+```{r}
+rasch_fit%>%
+  filter(targetWord %in% frq_sel_items_rasch)%>%
+  pivot_longer(names_to = "fit_index", values_to = "value", cols = c(outfit, infit))%>%
+  ggplot(. , aes(y = fct_reorder(targetWord, aoa_german_comb), x = value, fill = fit_index, col = fit_index))+
+  geom_vline(xintercept = c(0.5, 1.5), lty = 2, alpha = .5)+
+  geom_vline(xintercept = c(0.7, 1.3), lty = 3, alpha = .5)+
+  geom_vline(xintercept = 1, lty = 1, alpha = .5, col = "darkgreen")+
+  stat_halfeye(alpha = .75, .width = c(0.66, 0.95))+
+  scale_fill_colorblind()+
+  scale_color_colorblind()+
+  labs(x = "Index value", y = "Target word (sorted by rated age of acquisition)")+
+  #facet_grid(~fit_index)+
+  xlim(0,3)+
+  theme_bw()
 ```
 
 ## ICC selected

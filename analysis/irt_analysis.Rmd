@@ -591,7 +591,7 @@ iic3%>%
 ## Model comparison
 
 ```{r}
-mc1 <- loo_compare(irt1, irt2, irt3)%>%as_tibble(rownames = "model")
+mc1 <- loo_compare(irt1, irt1_guess, irt2, irt3)%>%as_tibble(rownames = "model")
 
 write_csv(mc1, "../saves/model_comparison.csv")
 ```
@@ -1104,6 +1104,57 @@ irt1_guess_sel <- brm(
 saveRDS(irt1_guess_sel, "../saves/irt1_guess_sel.rds")
 
 irt1_guess_sel <- readRDS("../saves/irt1_guess_sel.rds")
+```
+
+### Differential Item Functioning
+
+#### Sex
+
+```{r}
+irt1_guess_dif_sex_sel <-  brm(
+  data = irt_dat_sel,
+  family = brmsfamily("bernoulli", "identity"),
+  bf(
+    correct ~ 0.25 + 0.75 * inv_logit(eta),
+    eta ~ 1 + (0+ sex | targetWord) + (1 | subjID),
+    nl = TRUE
+  ),
+  prior = prior_1pl_guess,
+  control = list(adapt_delta = 0.95, max_treedepth = 12),
+  cores = 6,
+  chains = 6,
+  iter = 6000
+)%>%add_criterion(c("loo","waic"))  
+
+
+saveRDS(irt1_guess_dif_sex_sel, "../saves/irt1_guess_dif_sex_sel.rds")
+
+irt1_guess_dif_sex_sel<- readRDS("../saves/irt1_guess_dif_sex_sel.rds")
+
+```
+
+#### Order
+
+```{r}
+irt1_guess_dif_order_sel <- brm(
+  data = irt_dat_sel,
+  family = brmsfamily("bernoulli", "identity"),
+  bf(
+    correct ~ 0.25 + 0.75 * inv_logit(eta),
+    eta ~ 1 + (0+ order | targetWord) + (1 | subjID),
+    nl = TRUE
+  ),
+  prior = prior_1pl_guess,
+  control = list(adapt_delta = 0.95, max_treedepth = 12),
+  cores = 6,
+  chains = 6,
+  iter = 6000
+)%>%add_criterion(c("loo","waic")) 
+
+saveRDS(irt1_guess_dif_order_sel, "../saves/irt1_guess_dif_order_sel.rds")
+
+irt1_guess_dif_order_sel<- readRDS("../saves/irt1_guess_dif_order_sel.rds")
+
 ```
 
 ## 2PL + guessing model

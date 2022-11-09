@@ -13,6 +13,7 @@ library(ggthemes)
 library(geomtextpath)
 library(coda)
 library(ggridges)
+library(testing)
 
 ```
 
@@ -598,7 +599,7 @@ iic3%>%
 ## Model comparison
 
 ```{r}
-mc1 <- loo_compare(irt1, irt1_guess, irt2, irt3)%>%as_tibble(rownames = "model")
+mc1 <- loo_compare(irt1, irt1_guess, irt3)%>%as_tibble(rownames = "model")
 
 write_csv(mc1, "../saves/model_comparison.csv")
 ```
@@ -1020,11 +1021,6 @@ irt1_dif_order_sel<- readRDS("../saves/irt1_dif_order_sel.rds")
 
 ```
 
-```{r}
-mc_dif_rasch <- loo_compare(irt1_sel, irt1_dif_sex_sel, irt1_dif_order_sel)%>%as_tibble(rownames = "model")
-
-write_csv(mc_dif_rasch, "../saves/model_comparison_dif_rasch_sex.csv")
-```
 
 ```{r}
 dif_sex <- as_draws_df(irt1_dif_sex_sel)%>%
@@ -1075,6 +1071,7 @@ dif_sex%>%
   theme_few()
   
 ```
+
 ```{r}
 ggsave("../graphs/dif_cor.png", height = 8, width = 8, scale = 1.2)
 ```
@@ -1189,6 +1186,67 @@ irt1_guess_dif_order_sel<- readRDS("../saves/irt1_guess_dif_order_sel.rds")
 
 ```
 
+```{r}
+loo_compare(irt1_guess_sel, irt1_guess_dif_order_sel, irt1_guess_dif_sex_sel)%>%as_tibble(rownames = "model")
+
+brms::bayes_R2(irt1_guess)
+```
+
+
+```{r}
+dif_sex_guess <- as_draws_df(irt1_guess_dif_sex_sel)%>%
+  select(b_eta_Intercept, starts_with("r_targetWord"))%>%
+  mutate(iter = 1:n()) %>%
+  pivot_longer(starts_with("r_targetWord")) %>%
+  mutate(name = str_remove(name, pattern = "r_targetWord__eta"),
+         name = str_remove_all(name, pattern = "\\[|\\]"))%>%
+  separate(name, into = c("item", "sex"), sep = "\\,")%>%
+  mutate(sex = str_remove(sex, pattern = "sex"),
+         val =  value)%>%
+  group_by(item, sex)%>%
+  summarise(mode = estimate_mode(val),
+            uci = hdi_upper(val),
+            lci = hdi_lower(val))%>%
+  left_join(aoa%>%rename(item = targetWord))
+
+saveRDS(dif_sex_guess, "../saves/model_params_irt1_guess_dif_sex.rds")
+
+dif_sex_guess <- readRDS("../saves/model_params_irt1_guess_dif_sex.rds")
+
+ggplot(dif_sex_guess,aes(x = reorder(item, aoa_german_comb))) +
+	geom_point(aes(col = sex, y = lci), position = position_dodge(width = .5)) +
+  geom_point(aes(col = sex, y = uci), position = position_dodge(width = .5)) +
+  geom_linerange(aes(col = sex, ymin = lci + 0.1, ymax = uci-0.1), position = position_dodge(width = .5), alpha = .5) +
+	coord_flip() +
+  scale_color_colorblind(labels = c("male","female"), name = "Group")+
+	labs(x = "Item", y = "Easiness estimate")+
+  theme_few()
+```
+
+```{r}
+ggsave("../graphs/dif_ci.png", height = 10, width = 10, scale = 1)
+```
+
+```{r}
+dif_sex_guess%>%
+  pivot_wider(names_from = sex, values_from = c(mode,uci,lci))%>%
+  ggplot(., aes(x = mode_f, y = mode_m))+
+  geom_abline(intercept = 0, slope = 1, lty = 1, alpha = .75)+
+  geom_point(pch = 1, size = 2, stroke  = 1, aes(col = factor(aoa_german_comb)))+
+  geom_linerange(aes(ymin = lci_m, ymax = uci_m),  alpha = .25, lty = 1)+
+  geom_linerange(aes(xmin = lci_f, xmax = uci_f),  alpha = .25, lty = 1)+
+  geom_text(aes(label = item, x = uci_f +0.2))+
+  labs(x = "Group: female", y = "Group: male")+
+  scale_color_viridis_d()+
+  guides(col = F)+
+  theme_few()
+  
+```
+
+```{r}
+ggsave("../graphs/dif_cor.png", height = 8, width = 8, scale = 1.2)
+```
+
 ## 2PL + guessing model
 
 ```{r}
@@ -1227,9 +1285,8 @@ irt3_sel <- readRDS("../saves/irt3_sel.rds")
 ## Model comparison
 
 ```{r}
-loo_compare(irt1_guess_sel, irt3_sel)%>%as_tibble(rownames = "model")
-
-brms::bayes_R2(irt1_guess)
+loo_compare(irt1_guess_sel, irt3_sel, criterion = "waic")%>%as_tibble(rownames = "model")%>%
+  left_join(loo_compare(irt1_guess_sel, irt3_sel, criterion = "loo")%>%as_tibble(rownames = "model")%>%select(model, elpd_loo, se_elpd_loo, p_loo, se_p_loo, looic, se_looic))
 ```
 
 ## Reliability
@@ -1237,7 +1294,7 @@ brms::bayes_R2(irt1_guess)
 ```{r}
 rel_dat <- irt_dat%>%
   select(-sex, -order)%>%
-  filter(targetWord %in% sel_items_rasch)%>%
+  filter(targetWord %in% rasch_selected_items)%>%
   group_by(subjID)%>%
   distinct(targetWord, .keep_all = T)%>%
   pivot_wider(names_from = targetWord, values_from = correct)%>%

@@ -14,6 +14,7 @@ library(geomtextpath)
 library(coda)
 library(ggridges)
 library(testing)
+library(eRm)
 
 ```
 
@@ -1291,6 +1292,8 @@ loo_compare(irt1_guess_sel, irt3_sel, criterion = "waic")%>%as_tibble(rownames =
 
 ## Reliability
 
+### KR20
+
 ```{r}
 rel_dat <- irt_dat%>%
   select(-sex, -order)%>%
@@ -1301,6 +1304,22 @@ rel_dat <- irt_dat%>%
   ungroup()%>%
   select(-subjID)
 
-kr20(rel_dat, hit = 1)
+kr20_rel <- kr20(rel_dat, hit = 1)
+
+kr20_rel
 ```
 
+### Andrich Reliability
+
+```{r}
+
+pers_params <- ranef(irt1_guess_sel)$subjID%>%as_tibble(rownames = "subjID")
+
+
+sep_rel <- 1 - 
+  (1/length(pers_params$Estimate.eta_Intercept) * sum(pers_params$Est.Error.eta_Intercept^2))/
+  (1/(length(pers_params$Estimate.eta_Intercept)-1)*sum((pers_params$Estimate.eta_Intercept - mean(pers_params$Estimate.eta_Intercept))^2))
+
+
+sep_rel
+```

@@ -569,6 +569,8 @@ irt1_guess <- readRDS("../saves/irt1_guess.rds")
 ```
 
 
+## Fit indices
+
 ```{r}
 rasch_fit <- irt_dat%>%
   left_join(aoa)%>%
@@ -576,7 +578,7 @@ rasch_fit <- irt_dat%>%
   filter(targetWord %in% rasch_selected_items,
          #subjID %in% c("15X7mwV1", "39tVizn3", "479FefBH")
          )%>%
-  add_epred_draws(irt1_guess_sel, re_formula = ~(1 | targetWord) + (1 | subjID), ndraws = 5000)%>%
+  add_epred_draws(irt1_guess, re_formula = ~(1 | targetWord) + (1 | subjID), ndraws = 5000)%>%
   mutate(zvi = (correct - .epred)/(.epred*(1-.epred))^0.5)%>%
   group_by(targetWord,aoa_german_comb, .draw)%>%
   summarise(outfit = sum(zvi^2)/length(unique(subjID)),
@@ -599,8 +601,6 @@ rasch_sel_items <- rasch_fit_mode%>%
          0.5 < outfit & 1.5 > outfit)%>%
   pull(targetWord)
 
-
-saveRDS(rasch_sel_items, "../saves/rasch_selected_items.rds")
 ```
 
 ```{r}
@@ -1028,7 +1028,8 @@ bind_rows(rasch_fit_sel_guess%>%mutate(fit = "selected items only"),
   stat_halfeye(alpha = .75, .width = c(0.66, 0.95), position = position_dodge(width = 0.9))+
   scale_fill_colorblind()+
   scale_color_colorblind()+
-  labs(x = "Index value", y = "Target word (sorted by rated age of acquisition)")+
+  labs(title = "Comparing In- and Outfit for 1PL + guessing model with all items vs. selected items",
+       x = "Index value", y = "Target word (sorted by rated age of acquisition)")+
   #facet_grid(~fit_index)+
   xlim(0,3)+
   theme_bw()
@@ -1093,7 +1094,7 @@ bind_rows(icc1_guess_sel%>%mutate(model = "1PL + guessing"),
           icc3_sel%>%mutate(model = "2PL + guessing")) %>% 
   ggplot(aes(x = theta, y = p,group = interaction(item,model), col = model)) +
   geom_line() +
-  facet_wrap(~item)+
+  facet_wrap(~item, nrow = 2)+
   #guides(col = F)+
   geom_hline(yintercept = 0.25, lty = 3, alpha = .75)+
   scale_color_solarized(name = "Model") +
@@ -1101,8 +1102,8 @@ bind_rows(icc1_guess_sel%>%mutate(model = "1PL + guessing"),
        x = expression(theta~('ability on the logit scale')),
        y = expression(italic(p)(y==1))) +
   ylim(0,1)+
-  theme_minimal()
+  theme_bw()
 ```
 ```{r}
-ggsave("../graphs/fit_index_comp.png", height = 10, width = 14, scale = 1)
+ggsave("../graphs/ICC_comp.png", height = 4, width = 12, scale = 1.2)
 ```

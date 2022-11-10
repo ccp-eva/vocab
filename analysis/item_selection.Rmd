@@ -570,14 +570,13 @@ irt1_guess <- readRDS("../saves/irt1_guess.rds")
 
 
 ```{r}
-
 rasch_fit <- irt_dat%>%
   left_join(aoa)%>%
   select(-order, -sex)%>%
-  filter(#targetWord %in% c("door", "jaguar","zucchini"),
+  filter(targetWord %in% rasch_selected_items,
          #subjID %in% c("15X7mwV1", "39tVizn3", "479FefBH")
          )%>%
-  add_epred_draws(irt1_guess, re_formula = ~(1 | targetWord) + (1 | subjID), ndraws = 5000)%>%
+  add_epred_draws(irt1_guess_sel, re_formula = ~(1 | targetWord) + (1 | subjID), ndraws = 5000)%>%
   mutate(zvi = (correct - .epred)/(.epred*(1-.epred))^0.5)%>%
   group_by(targetWord,aoa_german_comb, .draw)%>%
   summarise(outfit = sum(zvi^2)/length(unique(subjID)),
@@ -620,6 +619,7 @@ rasch_fit%>%
   theme_bw()+
   theme(legend.position = c(0.8,0.8))
 ```
+
 ```{r}
 ggsave("../graphs/in_outfit.png", height = 12, width = 10, scale = 1)
 ```
@@ -978,8 +978,28 @@ saveRDS(frq_sel_items_rasch, "../saves/selected_items_rasch.rds")
 ## Fit indices selected
 
 ```{r}
-rasch_fit%>%
-  filter(targetWord %in% frq_sel_items_rasch)%>%
+rasch_selected_items <- readRDS("../saves/selected_items_rasch.rds")
+
+rasch_fit_sel_guess <- irt_dat%>%
+  left_join(aoa)%>%
+  select(-order, -sex)%>%
+  filter(targetWord %in% rasch_selected_items,
+         #subjID %in% c("15X7mwV1", "39tVizn3", "479FefBH")
+         )%>%
+  add_epred_draws(irt1_guess_sel, re_formula = ~(1 | targetWord) + (1 | subjID), ndraws = 5000)%>%
+  mutate(zvi = (correct - .epred)/(.epred*(1-.epred))^0.5)%>%
+  group_by(targetWord,aoa_german_comb, .draw)%>%
+  summarise(outfit = sum(zvi^2)/length(unique(subjID)),
+            infit = (sum(zvi^2*(.epred*(1-.epred)))/sum(.epred*(1-.epred))))
+
+
+```
+
+
+
+```{r}
+rasch_fit_sel_guess%>%
+  filter(targetWord %in% rasch_selected_items)%>%
   pivot_longer(names_to = "fit_index", values_to = "value", cols = c(outfit, infit))%>%
   ggplot(. , aes(y = fct_reorder(targetWord, aoa_german_comb), x = value, fill = fit_index, col = fit_index))+
   geom_vline(xintercept = c(0.5, 1.5), lty = 2, alpha = .5)+
@@ -994,15 +1014,37 @@ rasch_fit%>%
   theme_bw()
 ```
 
+### Compare initial and re-fitted fir indices
+
+```{r}
+bind_rows(rasch_fit_sel_guess%>%mutate(fit = "selected items only"),
+          rasch_fit%>%mutate(fit = "all items"))%>%
+  filter(targetWord %in% rasch_selected_items)%>%
+  pivot_longer(names_to = "fit_index", values_to = "value", cols = c(outfit, infit))%>%
+  ggplot(. , aes(y = fct_reorder(targetWord, aoa_german_comb), x = value, fill = fit_index, col = fit_index, lty = fit, pch = fit))+
+  geom_vline(xintercept = c(0.5, 1.5), lty = 2, alpha = .5)+
+  geom_vline(xintercept = c(0.7, 1.3), lty = 3, alpha = .5)+
+  geom_vline(xintercept = 1, lty = 1, alpha = .5, col = "darkgreen")+
+  stat_halfeye(alpha = .75, .width = c(0.66, 0.95), position = position_dodge(width = 0.9))+
+  scale_fill_colorblind()+
+  scale_color_colorblind()+
+  labs(x = "Index value", y = "Target word (sorted by rated age of acquisition)")+
+  #facet_grid(~fit_index)+
+  xlim(0,3)+
+  theme_bw()
+```
+```{r}
+ggsave("../graphs/fit_index_comp.png", height = 12, width = 10, scale = 1)
+```
+
 ## ICC selected
 
 ```{r}
-icc1_sel <- posterior_samples(irt1_guess)%>% 
+icc1_guess_sel <- posterior_samples(irt1_guess_sel)%>% 
   select(b_eta_Intercept, starts_with("r_targetWord"))%>%
   mutate(iter = 1:n()) %>% 
   pivot_longer(starts_with("r_targetWord"), names_to = "item", values_to = "xi") %>%
   mutate(item = str_extract(string = item, pattern = "(?<=\\[).*(?=,Intercept\\])"))%>%
-  filter(item %in% sel_items_rasch)%>%
   expand(nesting(iter, b_eta_Intercept, item, xi),
          theta = seq(from = -6, to = 6, length.out = 100)) %>% 
   mutate(p = 0.25 + 0.75*inv_logit_scaled((b_eta_Intercept + theta + xi))) %>%  
@@ -1024,4 +1066,43 @@ icc1_sel %>%
        y = expression(italic(p)(y==1))) +
   ylim(0,1)+
   theme_minimal()
+```
+
+### compare 1PL and 2PL ICCs
+
+```{r}
+icc3_sel <- posterior_samples(irt3_sel)%>% 
+  select(b_eta_Intercept, b_logalpha_Intercept, starts_with("r_targetWord"))%>%
+  mutate(iter = 1:n()) %>% 
+  pivot_longer(starts_with("r_targetWord")) %>%
+  mutate(item      = str_extract(name, pattern = "(?<=\\[).*(?=,Intercept\\])"),
+         parameter = ifelse(str_detect(name, "eta"), "xi", "logalpha"))%>%
+  select(-name) %>% 
+  pivot_wider(names_from = parameter, values_from = value)%>% 
+  expand(nesting(iter, b_eta_Intercept, b_logalpha_Intercept, item, xi, logalpha),
+         theta = seq(from = -6, to = 6, length.out = 100)) %>% 
+  # note the difference in the equation
+  mutate(p = 0.25 + 0.75*inv_logit_scaled(exp(b_logalpha_Intercept + logalpha) * (b_eta_Intercept + theta + xi))) %>% 
+  group_by(theta, item) %>% 
+  summarise(p = mean(p))%>%
+  left_join(aoa%>%rename(item = targetWord))
+```
+
+```{r}
+bind_rows(icc1_guess_sel%>%mutate(model = "1PL + guessing"),
+          icc3_sel%>%mutate(model = "2PL + guessing")) %>% 
+  ggplot(aes(x = theta, y = p,group = interaction(item,model), col = model)) +
+  geom_line() +
+  facet_wrap(~item)+
+  #guides(col = F)+
+  geom_hline(yintercept = 0.25, lty = 3, alpha = .75)+
+  scale_color_solarized(name = "Model") +
+  labs(title = "Comparing ICCs for 1PL and 2PL",
+       x = expression(theta~('ability on the logit scale')),
+       y = expression(italic(p)(y==1))) +
+  ylim(0,1)+
+  theme_minimal()
+```
+```{r}
+ggsave("../graphs/fit_index_comp.png", height = 10, width = 14, scale = 1)
 ```

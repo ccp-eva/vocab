@@ -1367,3 +1367,30 @@ loo_compare(irt1_guess_sel_man, irt3_sel_man)%>%as_tibble(rownames = "model")
 
 
 ```
+
+# Correlation item difficulty and frequency
+
+```{r}
+plot_dif <- coef(irt1_guess)$targetWord %>%
+	as_tibble(rownames = "targetWord")%>%
+  left_join(
+    data%>%select(targetWord, german, aoa_german_comb)%>%distinct(targetWord, german, aoa_german_comb)%>%
+      left_join(read_xlsx("../data/childLex_0.17.01c_2018-12-24_schr.xlsx", sheet = 2)%>%rename(german = lemma)%>%mutate(german = tolower(german), german = ifelse(german == "türe", "tür", german))%>%select(-type))%>%
+      distinct(targetWord, german, aoa_german_comb, .keep_all = T)%>%
+      select(-pos, -bigram.min, -bigram.sum, -nei.old20, -nei.n, -n.syl,-n.letters, -cd, -atype.abs, -type.abs, -lemma.abs)%>%
+      pivot_longer(cols = c(aoa_german_comb, atype.norm, type.norm, lemma.norm), names_to = "type", values_to = "value")%>%
+      group_by(type)
+    )
+
+
+plot_dif%>%
+  #filter(german != "tür", 
+   #      german != "auge")%>%
+  ggplot(aes(x = value, y = Estimate.eta_Intercept))+
+  geom_point(pch = 1)+
+  facet_wrap(~type, scales = "free_x")+
+  stat_cor()+
+  theme_bw()
+  
+```
+

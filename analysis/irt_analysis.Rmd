@@ -438,7 +438,7 @@ pairs(irt3)
 ### Easiness and discrimination
 
 ```{r}
-coef_irt3 <- coef(irt3)
+coef_irt3 <- coef(irt3) # robust = T (default = F)
 
 eta <- coef_irt3$targetWord[, , "eta_Intercept"] %>%
 	as_tibble(rownames = "item")
@@ -530,9 +530,9 @@ icc3 <- posterior_samples(irt3)%>%
 icc3 %>% 
   ggplot(aes(x = theta, y = p,group = item, col = aoa_german_comb)) +
   geom_line() +
-  #geom_textline(aes(label = item)) +
-  #geom_texthline(yintercept = 0.25, lty = 3, alpha = .75, label = "guessing",hjust = 0.8)+
-  geom_hline(yintercept = 0.25, lty = 3, alpha = .75)+
+  geom_textline(aes(label = item)) +
+  geom_texthline(yintercept = 0.25, lty = 3, alpha = .75, label = "guessing",hjust = 0.8)+
+  #geom_hline(yintercept = 0.25, lty = 3, alpha = .75)+
   #facet_wrap(~group)+
   #guides(col = F)+
   scale_color_viridis_c(name = "AoA") +
@@ -1322,4 +1322,48 @@ sep_rel <- 1 -
 
 
 sep_rel
+```
+
+# Manually excluding items
+
+```{r}
+irt_dat_sel_man <- irt_dat_sel%>%
+  filter(!targetWord %in% c("badger", "jaguar","satellite"))
+
+irt1_guess_sel_man <- brm(
+  data = irt_dat_sel_man,
+  family = brmsfamily("bernoulli", "identity"),
+  bf(
+    correct ~ 0.25 + 0.75 * inv_logit(eta),
+    eta ~ 1 + (1 | targetWord) + (1 | subjID),
+    nl = TRUE
+  ),
+  prior = prior_1pl_guess,
+  control = list(adapt_delta = 0.95, max_treedepth = 12),
+  cores = 6,
+  chains = 6,
+  iter = 6000
+)%>%add_criterion(c("loo","waic")) 
+
+
+irt3_sel_man <- brm(
+  data = irt_dat_sel_man,
+  family = brmsfamily("bernoulli", "identity"),
+  bf(
+    correct ~ 0.25 + 0.75 * inv_logit(exp(logalpha) * eta),
+    eta ~ 1 + (1 |i| targetWord) + (1 | subjID),
+    logalpha ~ 1 + (1 |i| targetWord),
+    nl = TRUE
+  ),
+  prior = prior_va_3pl_sel,
+  control = list(adapt_delta = 0.95, max_treedepth = 12),
+  cores = 6,
+  chains = 6,
+  iter = 6000
+)%>%add_criterion(c("loo","waic")) 
+
+
+loo_compare(irt1_guess_sel_man, irt3_sel_man)%>%as_tibble(rownames = "model")
+
+
 ```

@@ -8,6 +8,10 @@ library(tidyverse)
 library(ggpubr)
 library(ggthemes)
 library(tidybayes)
+library(brms)
+library(rstan)
+library(loo)
+library(coda)
 
 estimate_mode <- function(s) {
   d <- density(s)
@@ -572,6 +576,62 @@ full <- data%>%
   summarise(mean_full = mean(correct))
 ```
 
+## Fit model
+
+```{r}
+prior_1pl_guess <- prior("normal(0, 2)", class = "b", nlpar = "eta") +
+  prior("normal(0, 1)", class = "sd", group = "subjID", nlpar = "eta") +
+  prior("normal(0, 3)", class = "sd", group = "targetWord", nlpar = "eta")
+
+irt1_guess_standata <- brms:::make_standata(
+  formula = bf(
+    correct ~ 0.25 + 0.75 * inv_logit(eta),
+    eta ~ 1 + (1 | targetWord) + (1 | subjID),
+    nl = TRUE
+  ),
+  data = irt_dat,
+  family = brmsfamily("bernoulli", "identity"),
+  prior = prior_1pl_guess
+)
+
+irt1_guess_itemloo <- stan(
+  file = "../analysis/irt1_guess_itemloo.stan",
+  data = irt1_guess_standata[c("N", "Y", "N_1", "J_1", "N_2", "J_2")],
+  control = list(adapt_delta = 0.95, max_treedepth = 12),
+  cores = 6,
+  chains = 6,
+  iter = 6000
+)
+saveRDS(irt1_guess_itemloo, "../saves/irt1_guess_itemloo.rds")
+
+irt1_guess_itemloo_loom <- loo(irt1_guess_itemloo, pars = "loglik_m")
+
+saveRDS(irt1_guess_itemloo_loom, file = "../saves/irt1_guess_looitems_loom.rds")
+
+irt1_guess_itemloo_idxs <- irt_dat %>%
+  mutate(item_id = as.integer(factor(targetWord))) %>%
+  group_by(targetWord) %>%
+  summarize(
+    mean_correct = mean(correct),
+    item_id = unique(item_id),
+    targetWord = unique(targetWord)
+  ) %>%
+  full_join(mutate(as_tibble(irt1_guess_itemloo_loom$pointwise[, "influence_pareto_k", drop = FALSE]), item_id = row_number())) %>%
+  rename(pareto_k = influence_pareto_k) %>%
+  full_join(
+    as_draws_df(irt1_guess_itemloo) %>% 
+      select(.chain, .iteration, starts_with("infit"), starts_with("outfit"), starts_with("r_2")) %>% 
+      pivot_longer(-c(.chain, .iteration), names_pattern = "(.+)\\[([0-9]+)\\]", names_to = c(".value", "item_id")) %>% 
+      rename(threshold = r_2_eta_1) %>% 
+      mutate(item_id = as.integer(item_id)) %>% 
+      group_by(item_id) %>% 
+      summarize(across(c(infit, outfit, threshold), list(mean = mean, mode = estimate_mode, hdi_lower = hdi_lower, hdi_upper = hdi_upper)))
+  ) %>%
+  arrange(pareto_k) %>%
+  print(n = nrow(.))
+saveRDS(irt1_guess_itemloo_idxs, file = "../saves/irt1_guess_itemloo_idxs.rds")
+```
+
 
 ## Fit indices
 
@@ -653,9 +713,14 @@ items <- eta_rasch%>%pull(item)
 ```
 
 ```{r}
-easiness_rasch <- eta_rasch %>% pull(Estimate.eta_Intercept)
-infit <- rasch_fit_mode %>% filter(fit_index == "infit")%>%pull(mode)
-outfit <- rasch_fit_mode %>% filter(fit_index == "outfit")%>%pull(mode)
+# easiness_rasch <- eta_rasch %>% pull(Estimate.eta_Intercept)
+# infit <- rasch_fit_mode %>% filter(fit_index == "infit")%>%pull(mode)
+# outfit <- rasch_fit_mode %>% filter(fit_index == "outfit")%>%pull(mode)
+# disc_2PL <- coef_irt3$targetWord[, , "logalpha_Intercept"] %>% as_tibble(rownames = "item")%>%pull(Estimate)
+
+easiness_rasch <- irt1_guess_itemloo_idxs %>% arrange(targetWord)%>%pull(threshold_mode)
+infit <- irt1_guess_itemloo_idxs %>% arrange(targetWord)%>% pull(infit_mode)
+outfit <- irt1_guess_itemloo_idxs%>% arrange(targetWord) %>% pull(outfit_mode)
 disc_2PL <- coef_irt3$targetWord[, , "logalpha_Intercept"] %>% as_tibble(rownames = "item")%>%pull(Estimate)
 ```
 
@@ -800,7 +865,7 @@ score_fn <- function(subset) {
 	outfit_dist <- unlist(lapply(outfit_sample, func))
   mean_outfit <- -1*mean(outfit_dist)
   
-  #mean_pkd <- mean(pkd[subset])/2
+  mean_pkd <- mean(pkd[subset])/4
 
 	 
 	# sel <- items[subset == TRUE]
@@ -813,7 +878,7 @@ score_fn <- function(subset) {
 	# cor <- cor(sub_dat$mean_sub,full$mean_full)
 	# 
 	# return(spacing + mean_discrim/6 + cor/3)
-	return(spacing + mean_infit + mean_outfit+ var_disc_2PL )
+	return(spacing + mean_infit + mean_outfit+ var_disc_2PL +mean_pkd)
 }
 
 
@@ -841,13 +906,20 @@ proposal_fn <- function(subset) {
 }
 
 simulated_annealing_rasch <- function(k, cooling_ratio=0.999, reset_thresh=1000, break_thresh=10000) {
-  easiness_rasch <- eta_rasch %>% pull(Estimate.eta_Intercept)
-  infit <- rasch_fit_mode %>% filter(fit_index == "infit")%>%pull(mode)
+  
+  easiness <- irt1_guess_itemloo_idxs %>% arrange(targetWord)%>%pull(threshold_mode)
+  infit <- irt1_guess_itemloo_idxs %>% arrange(targetWord)%>% pull(infit_mode)
+  outfit <- irt1_guess_itemloo_idxs%>% arrange(targetWord) %>% pull(outfit_mode)
+  disc_2PL <- coef_irt3$targetWord[, , "logalpha_Intercept"] %>% as_tibble(rownames = "item")%>%pull(Estimate)
+  pkd <- irt1_guess_itemloo_idxs%>% arrange(targetWord) %>% pull(pareto_k)
+  
+  #easiness_rasch <- eta_rasch %>% pull(Estimate.eta_Intercept)
+  #infit <- rasch_fit_mode %>% filter(fit_index == "infit")%>%pull(mode)
   #infit <- maxi%>%pull(infit)
-  outfit <- rasch_fit_mode %>% filter(fit_index == "outfit")%>%pull(mode)
+  #outfit <- rasch_fit_mode %>% filter(fit_index == "outfit")%>%pull(mode)
   #outfit <- maxi%>%pull(outfit)
   #pkd <- maxi%>%arrange(targetWord)%>%pull(influence_pareto_k)
-  N <- length(easiness)
+  N <- length(easiness_rasch)
 
 	current_subset <- sample(c(rep(TRUE, k), rep(FALSE, N-k)))
 	best_subset <- current_subset
@@ -962,51 +1034,6 @@ sim_score_rasch%>%
 
 ## Determine size
 
-```{r, warning=FALSE}
-sim_size_rasch <- tibble()
-
-for (j in 1:1) {
-  
-for (i in 5:6) {
-  
-   sim <- simulated_annealing(i)
-  
-    sel <- items[unlist(sim$best_subset) == TRUE]
-
-
-	sub_dat <- data%>%
-	  filter(targetWord %in% sel)%>%
-	  group_by(subjID)%>%
-	  summarise(mean_sub = mean(correct))
-
-	cor <- cor(sub_dat$mean_sub,full$mean_full)
-	
-	row <- tibble(size = i, 
-         iter = j, 
-         cor = cor)
-  
-  sim_size_rasch <- bind_rows(sim_size_rasch, row)
-}
-
-}
-  
-saveRDS(sim_size_rasch, "../saves/sim_size_rasch.rds")
-
-sim_size_rasch%>%
-  group_by(size)%>%
-  summarise(mean_cor = mean(cor),
-         min = min(cor),
-         max = max(cor))%>%
-  ggplot(aes(x = factor(size), y = mean_cor))+
-  geom_pointrange(aes(ymin=min, max = max), pch = 1)+
-  geom_line(aes(group = 1))+
-  scale_linetype(name = "Run")+
-  theme_minimal()+
-  labs(x = "No. of items", y = "Correlation with full test")
-
-
-```
-
 ```{r}
   irt_comp_size <- tibble()
   
@@ -1048,7 +1075,7 @@ sim_size_rasch%>%
 #irt_comp_size <- readRDS("../saves/irt_comp_size.rds")
 
 irt_comp_size%>%
-  pivot_longer(cols = c(model_comparison_ratio, correlation), names_to = "type",values_to = "value")%>% 
+  pivot_longer(cols = c(ratio, correlation), names_to = "type",values_to = "value")%>% 
   ggplot(aes(x = factor(size), y = value))+
   geom_point(pch = 1)+
   geom_line()+

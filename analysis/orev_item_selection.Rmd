@@ -12,6 +12,8 @@ library(brms)
 library(rstan)
 library(loo)
 library(coda)
+library(testing)
+library(geomtextpath)
 
 estimate_mode <- function(s) {
   d <- density(s)
@@ -190,6 +192,10 @@ infit <- irt1_guess_itemloo_idxs %>% arrange(targetWord)%>% pull(infit_mode)
 outfit <- irt1_guess_itemloo_idxs%>% arrange(targetWord) %>% pull(outfit_mode)
 disc_2PL <- coef2PL$targetWord[, , "logalpha_Intercept"] %>% as_tibble(rownames = "item")%>%pull(Estimate)
 pkd <- irt1_guess_itemloo_idxs%>% arrange(targetWord) %>% pull(pareto_k)
+
+x <- sample(pkd, 20)
+mean(x)
+
 ```
 
 # Item selection
@@ -444,9 +450,9 @@ sim_score_rasch%>%
 ```{r}
 irt_comp_size <- tibble()
   
-  for(j in 2:2){
+  for(j in 1:5){
   
-  for (i in 38:40) {
+  for (i in 10:15) {
     
     sim <- simulated_annealing_rasch(i)
     
@@ -479,9 +485,9 @@ irt_comp_size <- tibble()
   
   }
   
-saveRDS(irt_comp_size, "../saves/irt_comp_size.rds")
+#saveRDS(irt_comp_size, "../saves/irt_comp_size.rds")
 
-irt_comp_size <- readRDS("../saves/irt_comp_size.rds")
+#irt_comp_size <- readRDS("../saves/irt_comp_size.rds")
 
 irt_comp_size%>%
   mutate(ratio = ifelse(elpd_diff == 0,0,ratio))%>%
@@ -535,6 +541,8 @@ rasch_selected_items <- item_sel_rasch%>%
   pull(targetWord)
 
 saveRDS(rasch_selected_items, "../saves/selected_items_rasch.rds")
+
+rasch_selected_items <- readRDS("../saves/selected_items_rasch.rds")
 ```
 
 # Rasch model with selected items
@@ -590,7 +598,8 @@ icc1_guess_sel <- posterior_samples(irt1_guess_sel)%>%
 ```{r}
 icc1_guess_sel %>% 
   ggplot(aes(x = theta, y = p,group = item, col = aoa_german_comb)) +
-  geom_line() +
+  #geom_line() +
+  geom_textline(aes(label = item)) +
   geom_hline(yintercept = 0.25, lty = 3, alpha = .75)+
   scale_color_viridis_c(name = "AoA") +
   labs(title = "ICCs for the 1PL",
@@ -598,6 +607,10 @@ icc1_guess_sel %>%
        y = expression(italic(p)(y==1))) +
   ylim(0,1)+
   theme_minimal()
+```
+
+```{r}
+ggsave("../graphs/ICC_1PL_sel.png", height = 6, width = 10, scale = 1)
 ```
 
 ## Differential Item Functioning
@@ -617,7 +630,9 @@ irt1_guess_dif_sex_sel <-  brm(
   control = list(adapt_delta = 0.95, max_treedepth = 12),
   cores = 6,
   chains = 6,
-  iter = 6000
+  iter = 6000,
+  threads = threading(8), #to speed things up, comment out if not on a cluster
+  backend = "cmdstanr" #to speed things up, comment out if not on a cluster
 )%>%add_criterion(c("loo","waic"))  
 
 
@@ -642,7 +657,9 @@ irt1_guess_dif_order_sel <- brm(
   control = list(adapt_delta = 0.95, max_treedepth = 12),
   cores = 6,
   chains = 6,
-  iter = 6000
+  iter = 6000,
+  threads = threading(8), #to speed things up, comment out if not on a cluster
+  backend = "cmdstanr" #to speed things up, comment out if not on a cluster
 )%>%add_criterion(c("loo","waic")) 
 
 saveRDS(irt1_guess_dif_order_sel, "../saves/irt1_guess_dif_order_sel.rds")
@@ -655,8 +672,6 @@ irt1_guess_dif_order_sel<- readRDS("../saves/irt1_guess_dif_order_sel.rds")
 
 ```{r}
 loo_compare(irt1_guess_sel, irt1_guess_dif_order_sel, irt1_guess_dif_sex_sel)%>%as_tibble(rownames = "model")
-
-brms::bayes_R2(irt1_guess)
 ```
 
 #### Visual model inspection
@@ -721,7 +736,7 @@ ggsave("../graphs/dif_cor.png", height = 8, width = 8, scale = 1.2)
 
 ```{r}
 rel_dat <- irt_dat%>%
-  select(-sex, -order)%>%
+  select(-sex, -order, -aoa_german_comb)%>%
   filter(targetWord %in% rasch_selected_items)%>%
   group_by(subjID)%>%
   distinct(targetWord, .keep_all = T)%>%

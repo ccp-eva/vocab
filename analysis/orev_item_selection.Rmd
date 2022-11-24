@@ -478,9 +478,9 @@ sim_score_rasch%>%
            ratio = as.numeric(comp%>%pull(ratio)),
            correlation = cor)
     
-    determine_size <- bind_rows(determine_size, row)
+    determine_size_pk <- bind_rows(determine_size_pk, row)
     
-    saveRDS(determine_size, "../saves/determine_size.rds")
+    saveRDS(determine_size_pk, "../saves/determine_size_pk.rds")
   }
   
   }

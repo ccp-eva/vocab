@@ -448,11 +448,11 @@ sim_score_rasch%>%
 ## Determine size
 
 ```{r}
-irt_comp_size <- tibble()
+#determine_size <- tibble()
   
   for(j in 1:5){
   
-  for (i in 10:15) {
+  for (i in 21:30) {
     
     sim <- simulated_annealing_rasch(i)
     
@@ -478,18 +478,18 @@ irt_comp_size <- tibble()
            ratio = as.numeric(comp%>%pull(ratio)),
            correlation = cor)
     
-    irt_comp_size <- bind_rows(irt_comp_size, row)
+    determine_size <- bind_rows(determine_size, row)
     
-    saveRDS(irt_comp_size, "../saves/irt_comp_size.rds")
+    saveRDS(determine_size, "../saves/determine_size.rds")
   }
   
   }
   
-#saveRDS(irt_comp_size, "../saves/irt_comp_size.rds")
+#saveRDS(determine_size, "../saves/determine_size.rds")
 
-#irt_comp_size <- readRDS("../saves/irt_comp_size.rds")
+#determine_size <- readRDS("../saves/determine_size.rds")
 
-irt_comp_size%>%
+determine_size%>%
   mutate(ratio = ifelse(elpd_diff == 0,0,ratio))%>%
   pivot_longer(cols = c(ratio, correlation), names_to = "type",values_to = "value")%>% 
   ggplot(aes(x = factor(size), y = value))+
@@ -610,7 +610,7 @@ icc1_guess_sel %>%
 ```
 
 ```{r}
-ggsave("../graphs/ICC_1PL_sel.png", height = 6, width = 10, scale = 1)
+ggsave("../graphs/ICC_1PL_sel.png", height = 6, width = 10, scale = 1, bg = "white")
 ```
 
 ## Differential Item Functioning
@@ -714,7 +714,7 @@ ggsave("../graphs/dif_ci.png", height = 10, width = 10, scale = 1)
 dif_sex_guess%>%
   pivot_wider(names_from = sex, values_from = c(mode,uci,lci))%>%
   ggplot(., aes(x = mode_f, y = mode_m))+
-  geom_abline(intercept = 0, slope = 1, lty = 1, alpha = .75)+
+  geom_abline(intercept = 0, slope = 1, lty = 3, alpha = .75)+
   geom_point(pch = 1, size = 2, stroke  = 1, aes(col = factor(aoa_german_comb)))+
   geom_linerange(aes(ymin = lci_m, ymax = uci_m),  alpha = .25, lty = 1)+
   geom_linerange(aes(xmin = lci_f, xmax = uci_f),  alpha = .25, lty = 1)+
@@ -722,12 +722,13 @@ dif_sex_guess%>%
   labs(x = "Group: female", y = "Group: male")+
   scale_color_viridis_d()+
   guides(col = F)+
+  coord_fixed()+
   theme_few()
   
 ```
 
 ```{r}
-ggsave("../graphs/dif_cor.png", height = 8, width = 8, scale = 1.2)
+ggsave("../graphs/dif_cor.png", height = 6, width = 6, scale = 1.2)
 ```
 
 # Reliability

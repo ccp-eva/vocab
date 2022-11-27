@@ -447,44 +447,44 @@ sim_score_rasch%>%
 ## Determine size
 
 ```{r}
-#determine_size <- tibble()
-  
-  for(j in 5:5){
-  
-  for (i in c(36:40)) {
-    
-    sim <- simulated_annealing_rasch(i)
-    
-    sel <- items[unlist(sim$best_subset) == TRUE]
-    
-    sub_dat <- irt_dat%>%filter(targetWord %in% sel)
-  
-    m1PL <- update(irt1_guess, newdata =sub_dat, chains = 6, cores = 6, threads = threading(8), backend = "cmdstanr")%>%add_criterion(c("loo"))
-  	m3PL <- update(irt2PL, newdata =sub_dat, chains = 6, cores = 6, threads = threading(8), backend = "cmdstanr")%>%add_criterion(c("loo")) 
-  	
-  	comp <- loo_compare(m1PL, m3PL)%>%as_tibble(rownames = "model")%>%filter(model == "m1PL")%>%mutate(ratio = abs(elpd_diff)/(2*se_diff))
-  	
-  	sub_dat_cor <- sub_dat%>%
-  	  group_by(subjID)%>%
-  	  summarise(mean_sub = mean(correct))
-  
-  	cor <- cor(sub_dat_cor$mean_sub,full$mean_full)
-  	
-  	row <- tibble(size = i, 
-           iter = j,
-           elpd_diff = as.numeric(comp%>%pull(elpd_diff)),
-           se_diff = as.numeric(comp%>%pull(se_diff)),
-           ratio = as.numeric(comp%>%pull(ratio)),
-           correlation = cor)
-    
-    determine_size <- bind_rows(determine_size, row)
-    
-    saveRDS(determine_size, "../saves/determine_size.rds")
-  }
-  
-  }
-  
-#saveRDS(determine_size, "../saves/determine_size.rds")
+# #determine_size <- tibble()
+#   
+#   for(j in 5:5){
+#   
+#   for (i in c(36:40)) {
+#     
+#     sim <- simulated_annealing_rasch(i)
+#     
+#     sel <- items[unlist(sim$best_subset) == TRUE]
+#     
+#     sub_dat <- irt_dat%>%filter(targetWord %in% sel)
+#   
+#     m1PL <- update(irt1_guess, newdata =sub_dat, chains = 6, cores = 6, threads = threading(8), backend = "cmdstanr")%>%add_criterion(c("loo"))
+#   	m3PL <- update(irt2PL, newdata =sub_dat, chains = 6, cores = 6, threads = threading(8), backend = "cmdstanr")%>%add_criterion(c("loo")) 
+#   	
+#   	comp <- loo_compare(m1PL, m3PL)%>%as_tibble(rownames = "model")%>%filter(model == "m1PL")%>%mutate(ratio = abs(elpd_diff)/(2*se_diff))
+#   	
+#   	sub_dat_cor <- sub_dat%>%
+#   	  group_by(subjID)%>%
+#   	  summarise(mean_sub = mean(correct))
+#   
+#   	cor <- cor(sub_dat_cor$mean_sub,full$mean_full)
+#   	
+#   	row <- tibble(size = i, 
+#            iter = j,
+#            elpd_diff = as.numeric(comp%>%pull(elpd_diff)),
+#            se_diff = as.numeric(comp%>%pull(se_diff)),
+#            ratio = as.numeric(comp%>%pull(ratio)),
+#            correlation = cor)
+#     
+#     determine_size <- bind_rows(determine_size, row)
+#     
+#     saveRDS(determine_size, "../saves/determine_size.rds")
+#   }
+#   
+#   }
+#   
+# saveRDS(determine_size, "../saves/determine_size.rds")
 
 determine_size <- readRDS("../saves/determine_size.rds")
 
@@ -498,14 +498,6 @@ determine_size%>%
   theme_bw()+
   labs(x = "No. of items", y = "Comparison value", title = "ratio = abs(elpd_diff)/(2*se_diff)")
 
-
-determine_size%>%
-  group_by(size)%>%
-  summarise(n())
-
-determine_size%>%
-  group_by(size)%>%
-  mutate(iter = 1:n())
 ```
 
 ```{r}

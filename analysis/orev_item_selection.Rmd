@@ -13,7 +13,7 @@ library(rstan)
 library(loo)
 library(coda)
 library(testing)
-library(geomtextpath)
+#library(geomtextpath)
 
 estimate_mode <- function(s) {
   d <- density(s)
@@ -144,6 +144,8 @@ irt1_guess_itemloo_idxs <- irt_dat %>%
   print(n = nrow(.))
 
 saveRDS(irt1_guess_itemloo_idxs, file = "../saves/irt1_guess_itemloo_idxs.rds")
+
+irt1_guess_itemloo_idxs <- readRDS(file = "../saves/irt1_guess_itemloo_idxs.rds")
 ```
 
 ## 2PL Model
@@ -192,9 +194,6 @@ infit <- irt1_guess_itemloo_idxs %>% arrange(targetWord)%>% pull(infit_mode)
 outfit <- irt1_guess_itemloo_idxs%>% arrange(targetWord) %>% pull(outfit_mode)
 disc_2PL <- coef2PL$targetWord[, , "logalpha_Intercept"] %>% as_tibble(rownames = "item")%>%pull(Estimate)
 pkd <- irt1_guess_itemloo_idxs%>% arrange(targetWord) %>% pull(pareto_k)
-
-x <- sample(pkd, 20)
-mean(x)
 
 ```
 
@@ -286,7 +285,7 @@ score_fn <- function(subset) {
 	outfit_dist <- unlist(lapply(outfit_sample, func))
   mean_outfit <- -2*mean(outfit_dist)
   
-  mean_pkd <- mean(pkd[subset])/5
+  #mean_pkd <- mean(pkd[subset])/5
 
 
 	 
@@ -300,7 +299,7 @@ score_fn <- function(subset) {
 	# cor <- cor(sub_dat$mean_sub,full$mean_full)
 	# 
 	# return(spacing + mean_discrim/6 + cor/3)
-	return(spacing + mean_infit + mean_outfit+ var_disc_2PL +mean_pkd)
+	return(spacing + mean_infit + mean_outfit+ var_disc_2PL)
 }
 
 
@@ -395,7 +394,7 @@ simulated_annealing_rasch <- function(k, cooling_ratio=0.999, reset_thresh=1000,
 ### Test run
 
 ```{r, message=F, warning=F, comment=F}
-sim_rasch_test <- simulated_annealing_rasch(20)
+sim_rasch_test <- simulated_annealing_rasch(22)
 
 sel_items_rasch_test <- items[unlist(sim_rasch_test$best_subset) == TRUE]
 
@@ -450,9 +449,9 @@ sim_score_rasch%>%
 ```{r}
 #determine_size <- tibble()
   
-  for(j in 1:5){
+  for(j in 5:5){
   
-  for (i in 21:30) {
+  for (i in c(36:40)) {
     
     sim <- simulated_annealing_rasch(i)
     
@@ -478,26 +477,35 @@ sim_score_rasch%>%
            ratio = as.numeric(comp%>%pull(ratio)),
            correlation = cor)
     
-    determine_size_pk <- bind_rows(determine_size_pk, row)
+    determine_size <- bind_rows(determine_size, row)
     
-    saveRDS(determine_size_pk, "../saves/determine_size_pk.rds")
+    saveRDS(determine_size, "../saves/determine_size.rds")
   }
   
   }
   
 #saveRDS(determine_size, "../saves/determine_size.rds")
 
-#determine_size <- readRDS("../saves/determine_size.rds")
+determine_size <- readRDS("../saves/determine_size.rds")
 
 determine_size%>%
   mutate(ratio = ifelse(elpd_diff == 0,0,ratio))%>%
   pivot_longer(cols = c(ratio, correlation), names_to = "type",values_to = "value")%>% 
   ggplot(aes(x = factor(size), y = value))+
   geom_point(pch = 1)+
-  geom_line()+
+  #geom_line()+
   facet_grid(type~. , scales = "free_y")+
   theme_bw()+
   labs(x = "No. of items", y = "Comparison value", title = "ratio = abs(elpd_diff)/(2*se_diff)")
+
+
+determine_size%>%
+  group_by(size)%>%
+  summarise(n())
+
+determine_size%>%
+  group_by(size)%>%
+  mutate(iter = 1:n())
 ```
 
 ```{r}
@@ -509,7 +517,7 @@ ggsave("../graphs/item_sel.png", height = 6, width = 10, scale = 1)
 ```{r}
 item_sel_rasch <- tibble()
 
-for (i in 1:10) {
+for (i in 1:20) {
   
    sim <- simulated_annealing_rasch(22)
   
@@ -598,8 +606,8 @@ icc1_guess_sel <- posterior_samples(irt1_guess_sel)%>%
 ```{r}
 icc1_guess_sel %>% 
   ggplot(aes(x = theta, y = p,group = item, col = aoa_german_comb)) +
-  #geom_line() +
-  geom_textline(aes(label = item)) +
+  geom_line() +
+  #geom_textline(aes(label = item)) +
   geom_hline(yintercept = 0.25, lty = 3, alpha = .75)+
   scale_color_viridis_c(name = "AoA") +
   labs(title = "ICCs for the 1PL",
